@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreador de Desempenho Acadêmico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .modal-backdrop { background-color: rgba(30, 30, 30, 0.7); }
+        .bg-neutral-900 { background-color: #1a1a1a; }
+        .bg-neutral-800 { background-color: #262626; }
+        .border-neutral-700 { border-color: #404040; }
+        .border-neutral-800 { border-color: #262626; }
+        .hover\:bg-neutral-700:hover { background-color: #404040; }
+        .ring-offset-black { --tw-ring-offset-color: #000; }
+        input[type='number']::-webkit-inner-spin-button,
+        input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type='number'] { -moz-appearance: textfield; }
+        
+        .schedule-grid { display: grid; grid-template-columns: 60px repeat(6, 1fr); gap: 1px; }
+        .schedule-cell, .schedule-header { background-color: #1a1a1a; min-height: 50px; display: flex; align-items: center; justify-content: center; font-size: 12px; padding: 4px; }
+        .schedule-cell { cursor: pointer; transition: background-color 0.2s; }
+        .schedule-cell:not(.schedule-time):hover { background-color: #2a2a2a; }
+        .schedule-cell .remove-class, .card-delete-button { display: none; }
+        .schedule-cell:hover .remove-class { display: block; }
+        .semester-card:hover .card-delete-button, .subject-card:hover .card-delete-button { display: flex; }
+        .assessment-actions { opacity: 0; transition: opacity 0.2s; }
+        tr:hover .assessment-actions { opacity: 1; }
+    </style>
+</head>
+<body class="bg-black text-white">
+
+    <div id="app" class="min-h-screen w-full">
+        <!-- Telas 1, 2 e 3 -->
+        <div id="profile-selection-screen" class="min-h-screen flex flex-col items-center justify-center p-4 text-center"> <h1 class="text-4xl md:text-5xl font-bold mb-10">Selecione o Usuário</h1> <div id="profiles-list" class="flex flex-wrap justify-center items-start gap-6 md:gap-8 mb-10"></div> <button id="add-profile-button" class="mt-4 px-6 py-3 bg-transparent border-2 border-neutral-700 text-neutral-400 rounded-lg hover:bg-neutral-800 hover:text-white transition-colors">Adicionar Perfil</button> </div>
+        <div id="create-profile-screen" class="hidden min-h-screen flex items-center justify-center p-4"></div>
+        <div id="main-dashboard-screen" class="hidden w-full min-h-screen flex-col">
+            <header class="bg-black/80 backdrop-blur-sm p-4 border-b border-neutral-800 flex justify-between items-center sticky top-0 z-20">
+                <div class="flex items-center gap-6">
+                    <h1 id="welcome-message" class="text-xl md:text-2xl font-bold"></h1>
+                    <nav id="main-nav" class="flex gap-2">
+                        <button data-view="semesters-view" class="nav-button px-4 py-2 rounded-md text-sm font-semibold">Matérias</button>
+                        <button data-view="schedule-view" class="nav-button px-4 py-2 rounded-md text-sm font-semibold">Grade Horária</button>
+                    </nav>
+                </div>
+                <button id="logout-button" class="px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition-colors flex items-center gap-2"> <i data-feather="log-out" class="w-5 h-5"></i><span class="hidden md:inline">Sair</span> </button>
+            </header>
+            <main id="dashboard-content" class="flex-grow p-4 md:p-8"></main>
+        </div>
+    </div>
+    
+    <footer class="text-center text-xs text-neutral-600 py-4">
+        Copyright (C) Asabbath Engine 2025. versão 0.00.20250718
+    </footer>
+
+    <!-- MODAIS -->
+    <div id="add-semester-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="add-subject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="add-assessment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="edit-assessment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="add-to-schedule-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="delete-confirmation-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+
+    <!-- TEMPLATES -->
+    <template id="profile-card-template"> <div class="flex flex-col items-center gap-3 cursor-pointer group"> <img src="https://placehold.co/160x160/1a1a1a/ffffff?text=Perfil" alt="Foto do perfil" class="w-28 h-28 md:w-40 md:h-40 object-cover rounded-full border-4 border-transparent group-hover:border-white transition-all duration-300"> <span class="profile-card-name text-xl font-semibold text-neutral-200 group-hover:text-white"></span> <span class="profile-card-university text-sm font-medium text-neutral-400 group-hover:text-neutral-300"></span> </div> </template>
+    <template id="semester-card-template"> <div class="semester-card bg-neutral-900 rounded-lg p-5 flex flex-col justify-between h-40 cursor-pointer relative group border-l-4 border-neutral-700 hover:border-white"> <button class="card-delete-button absolute top-2 right-2 w-8 h-8 rounded-full bg-red-800/50 hover:bg-red-800 items-center justify-center text-red-300 hover:text-white"> <i data-feather="trash-2" class="w-4 h-4"></i> </button> <div class="card-content flex-grow flex flex-col justify-between"> <div><h3 class="semester-card-name font-bold text-xl"></h3></div> <div class="mt-auto"> <p class="text-sm text-neutral-300 font-semibold">IRA: <span class="semester-ira font-bold text-white">0.00</span></p> <p class="text-right text-sm text-neutral-400"> <span class="subject-count">0 matérias</span> </p> </div> </div> </div> </template>
+    <template id="subject-card-template"> <div class="subject-card bg-neutral-900 rounded-lg p-5 flex flex-col justify-between h-36 cursor-pointer relative group border-l-4"> <button class="card-delete-button absolute top-2 right-2 w-8 h-8 rounded-full bg-red-800/50 hover:bg-red-800 items-center justify-center text-red-300 hover:text-white"> <i data-feather="trash-2" class="w-4 h-4"></i> </button> <div class="card-content flex-grow flex flex-col justify-between"> <div><h3 class="subject-card-name font-bold text-xl"></h3></div> <div class="text-right text-sm text-neutral-400"> <span class="assessment-count">0 avaliações</span> </div> </div> </div> </template>
+    <template id="assessment-row-template"> <tr class="border-b border-neutral-700"> <td class="p-4 assessment-name"></td> <td class="p-4 text-center"><span class="assessment-score"></span> / <span class="assessment-max-score"></span></td> <td class="p-4 text-right font-bold assessment-percentage"></td> <td class="p-4 text-right"> <div class="assessment-actions flex items-center justify-end gap-2"> <button class="edit-assessment-button text-neutral-400 hover:text-white"><i data-feather="edit" class="w-4 h-4"></i></button> <button class="delete-assessment-button text-red-500/70 hover:text-red-500"><i data-feather="trash-2" class="w-4 h-4"></i></button> </div> </td> </tr> </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- ESTADO DA APLICAÇÃO ---
+            let appData = { profiles: [], selectedProfileId: null, currentSemesterId: null, currentSubjectId: null, currentTimeslotId: null, itemToDelete: null, itemToEdit: null };
+            let subjectChartInstance, generalChartInstance = null;
+            const subjectColors = {
+                blue: { border: 'border-blue-500', bg: 'bg-blue-900', rgb: 'rgba(59, 130, 246, 0.5)' },
+                red: { border: 'border-red-500', bg: 'bg-red-900', rgb: 'rgba(239, 68, 68, 0.5)' },
+                green: { border: 'border-green-500', bg: 'bg-green-900', rgb: 'rgba(34, 197, 94, 0.5)' },
+                yellow: { border: 'border-yellow-400', bg: 'bg-yellow-800', rgb: 'rgba(250, 204, 21, 0.5)' },
+                purple: { border: 'border-purple-500', bg: 'bg-purple-900', rgb: 'rgba(168, 85, 247, 0.5)' },
+                pink: { border: 'border-pink-500', bg: 'bg-pink-900', rgb: 'rgba(236, 72, 153, 0.5)' },
+            };
+
+            // --- ELEMENTOS DO DOM ---
+            const screens = { profileSelection: document.getElementById('profile-selection-screen'), createProfile: document.getElementById('create-profile-screen'), mainDashboard: document.getElementById('main-dashboard-screen') };
+            const modals = { addSemester: document.getElementById('add-semester-modal'), addSubject: document.getElementById('add-subject-modal'), addAssessment: document.getElementById('add-assessment-modal'), editAssessment: document.getElementById('edit-assessment-modal'), addToSchedule: document.getElementById('add-to-schedule-modal'), deleteConfirmation: document.getElementById('delete-confirmation-modal') };
+            
+            // --- FUNÇÕES DE DADOS ---
+            function saveData() { localStorage.setItem('studentTrackerApp', JSON.stringify(appData)); }
+            function loadData() {
+                const savedData = localStorage.getItem('studentTrackerApp');
+                if (!savedData) return;
+                appData = JSON.parse(savedData);
+                // Migração de dados para novas estruturas
+                appData.profiles.forEach(profile => {
+                    if (profile.subjects && !profile.semesters) {
+                        profile.semesters = [{ id: Date.now(), name: "Período Padrão", subjects: profile.subjects }];
+                        delete profile.subjects;
+                    }
+                    if (!profile.schedule) profile.schedule = {};
+                    if (!profile.semesters) profile.semesters = [];
+                    profile.semesters.forEach(semester => {
+                        semester.subjects.forEach(subject => {
+                            if (subject.acronym === undefined) subject.acronym = '';
+                            if (subject.professor === undefined) subject.professor = '';
+                            if (subject.classroom === undefined) subject.classroom = '';
+                            if (subject.credits === undefined) subject.credits = 0;
+                            subject.assessments.forEach(asm => {
+                                if (asm.id === undefined) asm.id = Date.now() + Math.random();
+                            });
+                        });
+                    });
+                });
+            }
+            function getCurrentProfile() { return appData.profiles.find(p => p.id === appData.selectedProfileId); }
+            function getCurrentSemester() { const profile = getCurrentProfile(); if (!profile || !appData.currentSemesterId) return null; return profile.semesters.find(s => s.id === appData.currentSemesterId); }
+
+            // --- FUNÇÕES DE CÁLCULO (IRA) ---
+            function calculateSubjectAverage(subject) {
+                if (!subject.assessments || subject.assessments.length === 0) return 0;
+                const totalPercentage = subject.assessments.reduce((sum, asm) => sum + ((asm.score / asm.maxScore) * 100), 0);
+                return totalPercentage / subject.assessments.length;
+            }
+            function calculateIra(subjects) {
+                let totalCredits = 0;
+                let weightedSum = 0;
+                subjects.forEach(subject => {
+                    const credits = subject.credits || 0;
+                    if (credits > 0 && subject.assessments.length > 0) {
+                        const average = calculateSubjectAverage(subject);
+                        weightedSum += (average * credits);
+                        totalCredits += credits;
+                    }
+                });
+                if (totalCredits === 0) return "0.00";
+                const ira = weightedSum / totalCredits;
+                return (ira / 10).toFixed(2); // Retorna IRA na escala 0-10
+            }
+
+            // --- FUNÇÕES DE UI E NAVEGAÇÃO ---
+            function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.add('hidden')); if(screens[screenName]) screens[screenName].classList.remove('hidden'); }
+            function showModal(modalName) { if(modals[modalName]) modals[modalName].classList.remove('hidden'); }
+            function hideModals() { Object.values(modals).forEach(m => m.classList.add('hidden')); }
+            function switchView(viewName) {
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = ''; // Limpa a área de conteúdo
+                document.querySelectorAll('.nav-button').forEach(btn => {
+                    btn.classList.toggle('bg-neutral-800', btn.dataset.view === viewName);
+                    btn.classList.toggle('text-white', btn.dataset.view === viewName);
+                    btn.classList.toggle('text-neutral-400', btn.dataset.view !== viewName);
+                });
+                if (viewName === 'semesters-view') renderSemestersList();
+                if (viewName === 'schedule-view') renderScheduleGrid();
+            }
+
+            // --- FUNÇÕES DE RENDERIZAÇÃO ---
+            function renderProfiles() { const list = document.getElementById('profiles-list'); list.innerHTML = ''; document.getElementById('add-profile-button').textContent = appData.profiles.length === 0 ? 'Criar Novo Perfil' : 'Adicionar Outro Perfil'; appData.profiles.forEach(profile => { const card = document.getElementById('profile-card-template').content.cloneNode(true); const div = card.querySelector('.group'); div.querySelector('img').src = profile.photoUrl || `https://placehold.co/160x160/1a1a1a/ffffff?text=${profile.name.charAt(0)}`; div.querySelector('.profile-card-name').textContent = profile.name; div.querySelector('.profile-card-university').textContent = profile.university; div.addEventListener('click', () => selectProfile(profile.id)); list.appendChild(card); }); }
+            function renderDashboard() { const profile = getCurrentProfile(); if (!profile) return; document.getElementById('welcome-message').textContent = `${profile.name}`; switchView('semesters-view'); }
+            function renderSemestersList() {
+                const profile = getCurrentProfile();
+                const allSubjects = profile.semesters.flatMap(s => s.subjects);
+                const overallIra = calculateIra(allSubjects);
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `
+                    <div class="mb-8">
+                        <div class="bg-neutral-900 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-neutral-400">IRA Geral</h3>
+                            <p class="text-5xl font-bold text-white">${overallIra}</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold">Semestres</h2>
+                        <button id="open-add-semester-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus-circle" class="w-5 h-5"></i><span>Novo Semestre</span></button>
+                    </div>
+                    <div id="semesters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+                `;
+                const grid = document.getElementById('semesters-grid');
+                profile.semesters.forEach(semester => {
+                    const card = document.getElementById('semester-card-template').content.cloneNode(true);
+                    const cardDiv = card.querySelector('.semester-card');
+                    cardDiv.querySelector('.card-content').addEventListener('click', () => renderSingleSemesterView(semester.id));
+                    cardDiv.querySelector('.semester-card-name').textContent = semester.name;
+                    cardDiv.querySelector('.subject-count').textContent = `${semester.subjects.length} matérias`;
+                    cardDiv.querySelector('.semester-ira').textContent = calculateIra(semester.subjects);
+                    cardDiv.querySelector('.card-delete-button').addEventListener('click', (e) => { e.stopPropagation(); openDeleteConfirmationModal('semester', semester.id, semester.name); });
+                    grid.appendChild(card);
+                });
+                document.getElementById('open-add-semester-modal-button').addEventListener('click', () => showModal('addSemester'));
+                feather.replace();
+            }
+            function renderSingleSemesterView(semesterId) {
+                appData.currentSemesterId = parseInt(semesterId);
+                const semester = getCurrentSemester();
+                const profile = getCurrentProfile();
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `<div class="flex justify-between items-center mb-6"><button id="back-to-semesters" class="text-neutral-400 hover:text-white flex items-center gap-2"><i data-feather="arrow-left"></i> <span>Todos os Semestres</span></button><button id="open-add-subject-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus-circle" class="w-5 h-5"></i><span>Nova Matéria</span></button></div><h2 class="text-3xl font-bold mb-6">${profile.university} ${semester.name}</h2><div id="general-chart-container" class="mb-8 hidden"><div class="bg-neutral-900 p-4 rounded-lg"><canvas id="general-chart"></canvas></div></div><div id="subjects-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>`;
+                renderSubjects(semester);
+                renderGeneralChart(semester);
+                document.getElementById('back-to-semesters').addEventListener('click', renderSemestersList);
+                document.getElementById('open-add-subject-modal-button').addEventListener('click', () => showModal('addSubject'));
+                feather.replace();
+            }
+            function renderSubjects(semester) {
+                const grid = document.getElementById('subjects-grid');
+                grid.innerHTML = '';
+                semester.subjects.forEach(subject => {
+                    const card = document.getElementById('subject-card-template').content.cloneNode(true);
+                    const cardDiv = card.querySelector('.subject-card');
+                    cardDiv.classList.add(subjectColors[subject.color]?.border || 'border-neutral-700');
+                    cardDiv.querySelector('.card-content').addEventListener('click', () => showSubjectDetails(subject.id));
+                    cardDiv.querySelector('.subject-card-name').textContent = subject.name;
+                    cardDiv.querySelector('.assessment-count').textContent = `${subject.assessments.length} avaliações`;
+                    cardDiv.querySelector('.card-delete-button').addEventListener('click', (e) => { e.stopPropagation(); openDeleteConfirmationModal('subject', subject.id, subject.name); });
+                    grid.appendChild(card);
+                });
+                feather.replace();
+            }
+            function showSubjectDetails(subjectId) {
+                appData.currentSubjectId = parseInt(subjectId);
+                const semester = getCurrentSemester();
+                const subject = semester.subjects.find(s => s.id === appData.currentSubjectId);
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `<div class="flex justify-between items-center mb-6"><button id="back-to-subjects" class="text-neutral-400 hover:text-white flex items-center gap-2"><i data-feather="arrow-left"></i> <span>Voltar para ${semester.name}</span></button><button id="open-add-assessment-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus"></i> <span>Nova Avaliação</span></button></div>
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold">${subject.name} (${subject.acronym || 'N/A'})</h2>
+                    <p class="text-neutral-400 mt-1">Professor(a): ${subject.professor || 'Não informado'} | Sala: ${subject.classroom || 'Não informada'} | Créditos: ${subject.credits || 0}</p>
+                </div>
+                <div class="my-6"><div class="bg-neutral-900 p-4 rounded-lg"><canvas id="subject-chart"></canvas></div></div><h3 class="text-2xl font-bold mb-4">Avaliações</h3><div id="assessments-list" class="bg-neutral-900 rounded-lg overflow-hidden"></div>`;
+                renderAssessments(subject);
+                renderSubjectChart(subject);
+                document.getElementById('back-to-subjects').addEventListener('click', () => renderSingleSemesterView(semester.id));
+                document.getElementById('open-add-assessment-modal-button').addEventListener('click', () => showModal('addAssessment'));
+                feather.replace();
+            }
+            function renderAssessments(subject) {
+                const list = document.getElementById('assessments-list');
+                list.innerHTML = `<table class="w-full text-left"><thead class="bg-neutral-800"><tr><th class="p-4 font-semibold">Avaliação</th><th class="p-4 font-semibold text-center">Nota</th><th class="p-4 font-semibold text-right">Aproveitamento</th><th class="p-4 w-24"></th></tr></thead><tbody id="assessment-table-body"></tbody></table>`;
+                const tbody = document.getElementById('assessment-table-body');
+                if (subject.assessments.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center p-8 text-neutral-400">Nenhuma avaliação adicionada.</td></tr>';
+                    return;
+                }
+                subject.assessments.forEach(asm => {
+                    const row = document.getElementById('assessment-row-template').content.cloneNode(true);
+                    const percentage = (asm.score / asm.maxScore * 100);
+                    row.querySelector('.assessment-name').textContent = asm.name;
+                    row.querySelector('.assessment-score').textContent = asm.score;
+                    row.querySelector('.assessment-max-score').textContent = asm.maxScore;
+                    row.querySelector('.assessment-percentage').textContent = `${percentage.toFixed(1)}%`;
+                    row.querySelector('.edit-assessment-button').addEventListener('click', () => handleOpenEditAssessmentModal(asm));
+                    row.querySelector('.delete-assessment-button').addEventListener('click', () => openDeleteConfirmationModal('assessment', asm.id, asm.name));
+                    tbody.appendChild(row);
+                });
+                feather.replace();
+            }
+            function renderScheduleGrid() {
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `<div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold">Grade Horária</h2></div><div id="schedule-grid-container" class="bg-black p-1 overflow-x-auto"></div>`;
+                const container = document.getElementById('schedule-grid-container');
+                const profile = getCurrentProfile();
+                const days = { mon: 'Seg', tue: 'Ter', wed: 'Qua', thu: 'Qui', fri: 'Sex', sat: 'Sáb' };
+                let gridHTML = '<div class="schedule-grid bg-neutral-800">';
+                gridHTML += '<div class="schedule-header"></div>';
+                Object.values(days).forEach(dayName => { gridHTML += `<div class="schedule-header font-semibold">${dayName}</div>`; });
+                for (let hour = 6; hour <= 22; hour++) {
+                    gridHTML += `<div class="schedule-header schedule-time font-semibold">${String(hour).padStart(2, '0')}:00</div>`;
+                    Object.keys(days).forEach(dayKey => {
+                        const timeslotId = `${dayKey}-${String(hour).padStart(2, '0')}`;
+                        const subjectId = profile.schedule[timeslotId];
+                        if (subjectId) {
+                            const subject = profile.semesters.flatMap(sem => sem.subjects).find(s => s.id === subjectId);
+                            if (subject) {
+                                const colorClass = subjectColors[subject.color]?.bg || 'bg-neutral-700';
+                                gridHTML += `<div data-timeslot="${timeslotId}" title="${subject.name} - Sala: ${subject.classroom || 'N/A'}" class="schedule-cell ${colorClass} text-white font-bold p-1 relative group text-center break-words">${subject.acronym || subject.name}<button class="remove-class absolute top-1 right-1 text-white/50 hover:text-white" data-timeslot="${timeslotId}"><i data-feather="x-circle" class="w-4 h-4"></i></button></div>`;
+                            } else { gridHTML += `<div data-timeslot="${timeslotId}" class="schedule-cell empty-cell"></div>`; }
+                        } else { gridHTML += `<div data-timeslot="${timeslotId}" class="schedule-cell empty-cell"></div>`; }
+                    });
+                }
+                gridHTML += '</div>';
+                container.innerHTML = gridHTML;
+                feather.replace();
+                document.querySelectorAll('.empty-cell').forEach(cell => cell.addEventListener('click', () => handleOpenScheduleModal(cell.dataset.timeslot)));
+                document.querySelectorAll('.remove-class').forEach(button => button.addEventListener('click', (e) => { e.stopPropagation(); handleRemoveFromSchedule(button.dataset.timeslot); }));
+            }
+            const chartOptions = { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#262626' } }, x: { grid: { color: '#262626' } } }, plugins: { legend: { labels: { color: '#ffffff' } } }, tension: 0.4 };
+            function renderSubjectChart(subject) { const ctx = document.getElementById('subject-chart').getContext('2d'); if (subjectChartInstance) subjectChartInstance.destroy(); const labels = subject.assessments.map(a => a.name); const data = subject.assessments.map(a => (a.score / a.maxScore * 100)); subjectChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Desempenho (%)', data: data, borderColor: subjectColors[subject.color]?.rgb.replace(', 0.5)', ', 1)') || 'rgb(255,255,255)', backgroundColor: subjectColors[subject.color]?.rgb || 'rgba(255, 255, 255, 0.2)', fill: true, }] }, options: chartOptions }); }
+            function renderGeneralChart(semester) { const container = document.getElementById('general-chart-container'); if (!container) return; if (!semester || semester.subjects.length === 0) { container.classList.add('hidden'); return; } container.classList.remove('hidden'); const ctx = document.getElementById('general-chart').getContext('2d'); if (generalChartInstance) generalChartInstance.destroy(); let maxAssessments = 0; semester.subjects.forEach(s => { if (s.assessments.length > maxAssessments) maxAssessments = s.assessments.length; }); const labels = Array.from({ length: maxAssessments }, (_, i) => `Avaliação ${i + 1}`); const datasets = semester.subjects.map(subject => { const data = []; for(let i=0; i < maxAssessments; i++) { const asm = subject.assessments[i]; data.push(asm ? (asm.score / asm.maxScore * 100) : null); } return { label: subject.name, data: data, borderColor: subjectColors[subject.color]?.rgb.replace(', 0.5)', ', 1)') || 'rgb(255,255,255)', fill: false } }); generalChartInstance = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: chartOptions }); }
+
+            // --- MANIPULADORES DE EVENTOS ---
+            function handleCreateProfile(e) { e.preventDefault(); const name = document.getElementById('profile-name').value.trim(); const university = document.getElementById('profile-university').value.trim(); const photoUrl = document.getElementById('profile-photo').value.trim(); if (!name || !university) return; appData.profiles.push({ id: Date.now(), name, university, photoUrl, semesters: [], schedule: {} }); saveData(); renderProfiles(); e.target.reset(); showScreen('profileSelection'); }
+            function handleAddSemester(e) { e.preventDefault(); const name = document.getElementById('semester-name').value.trim(); if (!name) return; const profile = getCurrentProfile(); profile.semesters.push({ id: Date.now(), name, subjects: [] }); saveData(); renderSemestersList(); e.target.reset(); hideModals(); }
+            function handleAddSubject(e) {
+                e.preventDefault();
+                const name = document.getElementById('subject-name').value.trim();
+                const acronym = document.getElementById('subject-acronym').value.trim();
+                const professor = document.getElementById('subject-professor').value.trim();
+                const classroom = document.getElementById('subject-classroom').value.trim();
+                const credits = parseInt(document.getElementById('subject-credits').value) || 0;
+                const selectedColor = document.querySelector('input[name="color-choice"]:checked');
+                if (!name || !selectedColor) { alert('Por favor, preencha pelo menos o nome e escolha uma cor.'); return; }
+                const semester = getCurrentSemester();
+                semester.subjects.push({ id: Date.now(), name, acronym, professor, classroom, credits, color: selectedColor.value, assessments: [] });
+                saveData();
+                renderSingleSemesterView(semester.id);
+                e.target.reset();
+                hideModals();
+            }
+            function handleAddAssessment(e) { 
+                e.preventDefault(); 
+                const name = document.getElementById('assessment-name').value.trim(); 
+                const score = parseFloat(document.getElementById('assessment-score').value); 
+                const maxScore = parseFloat(document.getElementById('assessment-max-score').value); 
+                if (!name || isNaN(score) || isNaN(maxScore) || maxScore <= 0) { alert('Preencha os campos corretamente.'); return; } 
+                const semester = getCurrentSemester(); 
+                const subject = semester.subjects.find(s => s.id === appData.currentSubjectId); 
+                subject.assessments.push({ id: Date.now() + Math.random(), name, score, maxScore }); 
+                saveData(); 
+                showSubjectDetails(subject.id); 
+                e.target.reset(); 
+                hideModals(); 
+            }
+            function handleOpenEditAssessmentModal(assessment) {
+                appData.itemToEdit = { assessmentId: assessment.id };
+                showModal('editAssessment');
+                document.getElementById('edit-assessment-name').value = assessment.name;
+                document.getElementById('edit-assessment-score').value = assessment.score;
+                document.getElementById('edit-assessment-max-score').value = assessment.maxScore;
+            }
+            function handleEditAssessment(e) {
+                e.preventDefault();
+                const { assessmentId } = appData.itemToEdit;
+                const newName = document.getElementById('edit-assessment-name').value.trim();
+                const newScore = parseFloat(document.getElementById('edit-assessment-score').value);
+                const newMaxScore = parseFloat(document.getElementById('edit-assessment-max-score').value);
+
+                if (!newName || isNaN(newScore) || isNaN(newMaxScore) || newMaxScore <= 0) {
+                    alert('Preencha os campos corretamente.');
+                    return;
+                }
+
+                const semester = getCurrentSemester();
+                const subject = semester.subjects.find(s => s.id === appData.currentSubjectId);
+                const assessment = subject.assessments.find(a => a.id === assessmentId);
+
+                assessment.name = newName;
+                assessment.score = newScore;
+                assessment.maxScore = newMaxScore;
+
+                saveData();
+                showSubjectDetails(subject.id);
+                hideModals();
+                appData.itemToEdit = null;
+            }
+            function selectProfile(profileId) { appData.selectedProfileId = parseInt(profileId); saveData(); renderDashboard(); showScreen('mainDashboard'); }
+            function logout() { appData.selectedProfileId = null; saveData(); showScreen('profileSelection'); }
+            function openDeleteConfirmationModal(type, id, name) { appData.itemToDelete = { type, id: id }; const message = document.getElementById('delete-confirmation-message'); if (type === 'semester') { message.textContent = `Tem certeza que deseja excluir o semestre "${name}"? Todas as matérias e notas contidas nele serão perdidas para sempre.`; } else if (type === 'subject') { message.textContent = `Tem certeza que deseja excluir a matéria "${name}"? Todas as suas avaliações serão perdidas.`; } else { message.textContent = `Tem certeza que deseja excluir a avaliação "${name}"?`; } showModal('deleteConfirmation'); }
+            function handleDeleteItem() {
+                if (!appData.itemToDelete) return;
+                const { type, id } = appData.itemToDelete;
+                const profile = getCurrentProfile();
+                const semester = getCurrentSemester();
+
+                if (type === 'semester') {
+                    profile.semesters = profile.semesters.filter(s => s.id !== id);
+                    renderSemestersList();
+                } else if (type === 'subject') {
+                    if (semester) {
+                        semester.subjects = semester.subjects.filter(s => s.id !== id);
+                        Object.keys(profile.schedule).forEach(timeslot => { if (profile.schedule[timeslot] === id) { delete profile.schedule[timeslot]; } });
+                        renderSingleSemesterView(semester.id);
+                    }
+                } else if (type === 'assessment') {
+                    if (semester) {
+                        const subject = semester.subjects.find(s => s.id === appData.currentSubjectId);
+                        if (subject) {
+                            subject.assessments = subject.assessments.filter(a => a.id !== id);
+                            showSubjectDetails(subject.id);
+                        }
+                    }
+                }
+                saveData();
+                hideModals();
+                appData.itemToDelete = null;
+            }
+            function handleOpenScheduleModal(timeslotId) { appData.currentTimeslotId = timeslotId; const [day, hour] = timeslotId.split('-'); const dayNames = { mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado' }; document.getElementById('schedule-modal-timeslot').textContent = `${dayNames[day]} às ${hour}:00`; const list = document.getElementById('schedule-subject-list'); const profile = getCurrentProfile(); const allSubjects = profile.semesters.flatMap(sem => sem.subjects); list.innerHTML = ''; if (allSubjects.length === 0) { list.innerHTML = '<p class="text-neutral-400">Crie uma matéria primeiro.</p>'; } else { allSubjects.forEach(subject => { const colorClass = subjectColors[subject.color]?.bg || 'bg-neutral-700'; list.innerHTML += `<button data-subject-id="${subject.id}" class="schedule-add-button w-full text-left p-3 rounded-md ${colorClass} hover:opacity-80 transition-opacity">${subject.name}</button>`; }); } document.querySelectorAll('.schedule-add-button').forEach(btn => btn.addEventListener('click', (e) => handleAddToSchedule(e.currentTarget.dataset.subjectId))); showModal('addToSchedule'); }
+            function handleAddToSchedule(subjectId) { const profile = getCurrentProfile(); profile.schedule[appData.currentTimeslotId] = parseInt(subjectId); saveData(); renderScheduleGrid(); hideModals(); }
+            function handleRemoveFromSchedule(timeslotId) { const profile = getCurrentProfile(); delete profile.schedule[timeslotId]; saveData(); renderScheduleGrid(); }
+
+            // --- INICIALIZAÇÃO ---
+            function init() {
+                // Preenche o HTML dos modais
+                document.getElementById('create-profile-screen').innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h2 class="text-3xl font-bold mb-6 text-center">Criar Novo Perfil</h2><form id="create-profile-form" class="flex flex-col gap-4"><input type="text" id="profile-name" placeholder="Seu Nome" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><input type="text" id="profile-university" placeholder="Sigla da Faculdade" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><input type="url" id="profile-photo" placeholder="URL da foto (opcional)" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg"><div class="flex items-center justify-between mt-4 gap-4"><button type="button" id="cancel-creation-button" class="w-full px-6 py-3 bg-neutral-700 rounded-lg">Voltar</button><button type="submit" class="w-full px-6 py-3 bg-white text-black rounded-lg font-semibold">Criar</button></div></form></div>`;
+                modals.addSemester.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Adicionar Novo Semestre</h3><form id="add-semester-form"><input type="text" id="semester-name" placeholder="Nome do Semestre (ex: 2025.1)" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button type="submit" class="px-6 py-2 bg-white text-black rounded-lg font-semibold">Salvar</button></div></form></div>`;
+                modals.addSubject.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Adicionar Nova Matéria</h3><form id="add-subject-form"><div class="flex flex-col gap-4"><input type="text" id="subject-name" placeholder="Nome da Matéria (ex: Cálculo I)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required><input type="text" id="subject-acronym" placeholder="Sigla (ex: CALC1)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><input type="text" id="subject-professor" placeholder="Nome do Professor" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><input type="text" id="subject-classroom" placeholder="Sala (ex: B-204)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><input type="number" id="subject-credits" placeholder="Carga Horária (Créditos)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><div class="mb-2"><label class="block text-sm font-medium text-neutral-400 mb-2">Cor do Marcador</label><div id="color-options" class="flex gap-3"></div></div></div><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button type="submit" class="px-6 py-2 bg-white text-black rounded-lg font-semibold">Salvar</button></div></form></div>`;
+                modals.addAssessment.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Nova Avaliação</h3><form id="add-assessment-form"><div class="flex flex-col gap-4"><input type="text" id="assessment-name" placeholder="Nome (ex: Prova 1)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required><input type="number" step="0.01" id="assessment-score" placeholder="Nota Obtida" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required><input type="number" step="0.01" id="assessment-max-score" placeholder="Nota Máxima" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required></div><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button type="submit" class="px-6 py-2 bg-white text-black rounded-lg font-semibold">Salvar</button></div></form></div>`;
+                modals.editAssessment.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Editar Avaliação</h3><form id="edit-assessment-form"><div class="flex flex-col gap-4"><input type="text" id="edit-assessment-name" placeholder="Nome (ex: Prova 1)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required><input type="number" step="0.01" id="edit-assessment-score" placeholder="Nota Obtida" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required><input type="number" step="0.01" id="edit-assessment-max-score" placeholder="Nota Máxima" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required></div><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button type="submit" class="px-6 py-2 bg-white text-black rounded-lg font-semibold">Salvar Alterações</button></div></form></div>`;
+                modals.addToSchedule.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Adicionar aula em <span id="schedule-modal-timeslot"></span></h3><div id="schedule-subject-list" class="flex flex-col gap-2 max-h-60 overflow-y-auto"></div><div class="flex items-center justify-end mt-6"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button></div></div>`;
+                modals.deleteConfirmation.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-4">Confirmar Exclusão</h3><p id="delete-confirmation-message" class="text-neutral-300 mb-6">Você tem certeza?</p><div class="flex items-center justify-end mt-6 gap-4"><button id="cancel-delete-button" class="px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button id="confirm-delete-button" class="px-6 py-2 bg-red-600 rounded-lg font-semibold">Excluir</button></div></div>`;
+                
+                loadData();
+                renderProfiles();
+                showScreen('profileSelection');
+                Chart.defaults.color = '#9ca3af';
+
+                const colorContainer = document.getElementById('color-options');
+                if(colorContainer) {
+                    Object.keys(subjectColors).forEach(color => { colorContainer.innerHTML += `<label class="cursor-pointer"><input type="radio" name="color-choice" value="${color}" class="sr-only peer"><div class="w-8 h-8 rounded-full ${subjectColors[color].border.replace('border-', 'bg-')} peer-checked:ring-2 ring-white ring-offset-2 ring-offset-black"></div></label>`; });
+                }
+                
+                // Listeners
+                document.getElementById('add-profile-button').addEventListener('click', () => showScreen('createProfile'));
+                document.getElementById('cancel-creation-button').addEventListener('click', () => showScreen('profileSelection'));
+                document.getElementById('logout-button').addEventListener('click', logout);
+                document.querySelectorAll('.nav-button').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+                document.querySelectorAll('.modal-cancel-button').forEach(btn => btn.addEventListener('click', hideModals));
+                document.getElementById('cancel-delete-button').addEventListener('click', hideModals);
+                document.getElementById('confirm-delete-button').addEventListener('click', handleDeleteItem);
+                document.getElementById('create-profile-form').addEventListener('submit', handleCreateProfile);
+                document.getElementById('add-semester-form').addEventListener('submit', handleAddSemester);
+                document.getElementById('add-subject-form').addEventListener('submit', handleAddSubject);
+                document.getElementById('add-assessment-form').addEventListener('submit', handleAddAssessment);
+                document.getElementById('edit-assessment-form').addEventListener('submit', handleEditAssessment);
+                
+                feather.replace();
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
