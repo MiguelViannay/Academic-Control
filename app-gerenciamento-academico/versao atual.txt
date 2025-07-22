@@ -1,3 +1,5 @@
+Basta entrar direto no arquivo index para rodar o App
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>

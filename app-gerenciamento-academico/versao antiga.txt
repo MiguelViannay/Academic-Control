@@ -1,0 +1,481 @@
+Foi copiada direta do meu GitHub : Miguel Viannay 
+Pode haver erros de copia e cola
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreador de Desempenho Acadêmico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .modal-backdrop { background-color: rgba(30, 30, 30, 0.7); }
+        .bg-neutral-900 { background-color: #1a1a1a; }
+        .bg-neutral-800 { background-color: #262626; }
+        .border-neutral-700 { border-color: #404040; }
+        .border-neutral-800 { border-color: #262626; }
+        .hover\:bg-neutral-700:hover { background-color: #404040; }
+        .ring-offset-black { --tw-ring-offset-color: #000; }
+        input[type='number']::-webkit-inner-spin-button,
+        input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type='number'] { -moz-appearance: textfield; }
+
+        .schedule-grid { display: grid; grid-template-columns: 60px repeat(6, 1fr); gap: 1px; }
+        .schedule-cell, .schedule-header { background-color: #1a1a1a; min-height: 50px; display: flex; align-items: center; justify-content: center; font-size: 12px; padding: 4px; }
+        .schedule-cell { cursor: pointer; transition: background-color 0.2s; }
+        .schedule-cell:not(.schedule-time):hover { background-color: #2a2a2a; }
+        .schedule-cell .remove-class, .card-delete-button { display: none; }
+        .schedule-cell .remove-class, .card-delete-button, .todo-delete-button { display: none; }
+        .schedule-cell:hover .remove-class { display: block; }
+        .semester-card:hover .card-delete-button, .subject-card:hover .card-delete-button { display: flex; }
+        .semester-card:hover .card-delete-button, .subject-card:hover .card-delete-button, .todo-item:hover .todo-delete-button { display: flex; }
+        .assessment-actions { opacity: 0; transition: opacity 0.2s; }
+        tr:hover .assessment-actions { opacity: 1; }
+        .todo-item-text.completed { text-decoration: line-through; color: #525252; }
+    </style>
+</head>
+<body class="bg-black text-white">
+
+    <div id="app" class="min-h-screen w-full">
+        <!-- Telas 1, 2 e 3 -->
+        <div id="profile-selection-screen" class="min-h-screen flex flex-col items-center justify-center p-4 text-center"> <h1 class="text-4xl md:text-5xl font-bold mb-10">Selecione o Usuário</h1> <div id="profiles-list" class="flex flex-wrap justify-center items-start gap-6 md:gap-8 mb-10"></div> <button id="add-profile-button" class="mt-4 px-6 py-3 bg-transparent border-2 border-neutral-700 text-neutral-400 rounded-lg hover:bg-neutral-800 hover:text-white transition-colors">Adicionar Perfil</button> </div>
+        
+        <div id="create-profile-screen" class="hidden min-h-screen flex items-center justify-center p-4"></div>
+        
+        <div id="main-dashboard-screen" class="hidden w-full min-h-screen flex-col">
+            <header class="bg-black/80 backdrop-blur-sm p-4 border-b border-neutral-800 flex justify-between items-center sticky top-0 z-20">
+                <div class="flex items-center gap-6">
+                    <h1 id="welcome-message" class="text-xl md:text-2xl font-bold"></h1>
+                    <nav id="main-nav" class="flex gap-2">
+                        <button data-view="semesters-view" class="nav-button px-4 py-2 rounded-md text-sm font-semibold">Matérias</button>
+                        <button data-view="schedule-view" class="nav-button px-4 py-2 rounded-md text-sm font-semibold">Grade Horária</button>
+                        <button data-view="todo-view" class="nav-button px-4 py-2 rounded-md text-sm font-semibold text-neutral-400">To-do List</button>
+                        <button data-view="profile-view" class="nav-button px-4 py-2 rounded-md text-sm font-semibold text-neutral-400">Perfil</button>
+                    </nav>
+                </div>
+                <button id="logout-button" class="px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition-colors flex items-center gap-2"> <i data-feather="log-out" class="w-5 h-5"></i><span class="hidden md:inline">Sair</span> </button>
+                <div class="flex items-center gap-4">
+                    <button id="ai-assistant-button" title="Assistente IA" class="px-3 py-2 bg-blue-800/50 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"> <i data-feather="cpu" class="w-5 h-5"></i><span class="hidden md:inline">Assistente IA</span> </button>
+                    <button id="logout-button" class="px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition-colors flex items-center gap-2"> <i data-feather="log-out" class="w-5 h-5"></i><span class="hidden md:inline">Sair</span> </button>
+                </div>
+            </header>
+            <main id="dashboard-content" class="flex-grow p-4 md:p-8"></main>
+        </div>
+    </div>
+
+    <footer class="text-center text-xs text-neutral-600 py-4">
+        Copyright (C) Asabbath Engine 2025. versão 0.00.20250718
+        Copyright (C) Asabbath Engine 2025. versão 1.0.1.20250719
+    </footer>
+
+    <!-- MODAIS -->
+    <div id="add-semester-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="add-subject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="add-assessment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="edit-assessment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="add-to-schedule-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="delete-confirmation-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+    <div id="ai-assistant-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
+
+    <!-- TEMPLATES -->
+    <template id="profile-card-template"> <div class="flex flex-col items-center gap-3 cursor-pointer group"> <img src="https://placehold.co/160x160/1a1a1a/ffffff?text=Perfil" alt="Foto do perfil" class="w-28 h-28 md:w-40 md:h-40 object-cover rounded-full border-4 border-transparent group-hover:border-white transition-all duration-300"> <span class="profile-card-name text-xl font-semibold text-neutral-200 group-hover:text-white"></span> <span class="profile-card-university text-sm font-medium text-neutral-400 group-hover:text-neutral-300"></span> </div> </template>
+    <template id="semester-card-template"> <div class="semester-card bg-neutral-900 rounded-lg p-5 flex flex-col justify-between h-40 cursor-pointer relative group border-l-4 border-neutral-700 hover:border-white"> <button class="card-delete-button absolute top-2 right-2 w-8 h-8 rounded-full bg-red-800/50 hover:bg-red-800 items-center justify-center text-red-300 hover:text-white"> <i data-feather="trash-2" class="w-4 h-4"></i> </button> <div class="card-content flex-grow flex flex-col justify-between"> <div><h3 class="semester-card-name font-bold text-xl"></h3></div> <div class="mt-auto"> <p class="text-sm text-neutral-300 font-semibold">IRA: <span class="semester-ira font-bold text-white">0.00</span></p> <p class="text-right text-sm text-neutral-400"> <span class="subject-count">0 matérias</span> </p> </div> </div> </div> </template>
+    <template id="subject-card-template"> <div class="subject-card bg-neutral-900 rounded-lg p-5 flex flex-col justify-between h-36 cursor-pointer relative group border-l-4"> <button class="card-delete-button absolute top-2 right-2 w-8 h-8 rounded-full bg-red-800/50 hover:bg-red-800 items-center justify-center text-red-300 hover:text-white"> <i data-feather="trash-2" class="w-4 h-4"></i> </button> <div class="card-content flex-grow flex flex-col justify-between"> <div><h3 class="subject-card-name font-bold text-xl"></h3></div> <div class="text-right text-sm text-neutral-400"> <span class="assessment-count">0 avaliações</span> </div> </div> </div> </template>
+    <template id="assessment-row-template"> <tr class="border-b border-neutral-700"> <td class="p-4 assessment-name"></td> <td class="p-4 text-center"><span class="assessment-score"></span> / <span class="assessment-max-score"></span></td> <td class="p-4 text-right font-bold assessment-percentage"></td> <td class="p-4 text-right"> <div class="assessment-actions flex items-center justify-end gap-2"> <button class="edit-assessment-button text-neutral-400 hover:text-white"><i data-feather="edit" class="w-4 h-4"></i></button> <button class="delete-assessment-button text-red-500/70 hover:text-red-500"><i data-feather="trash-2" class="w-4 h-4"></i></button> </div> </td> </tr> </template>
+    <template id="todo-item-template"> <div class="todo-item flex items-center gap-4 p-4 bg-neutral-900 rounded-lg"> <input type="checkbox" class="todo-checkbox h-5 w-5 rounded bg-neutral-700 border-neutral-600 text-blue-500 focus:ring-blue-600 ring-offset-neutral-900"> <label class="flex-grow todo-item-text cursor-pointer"></label> <button class="todo-delete-button items-center justify-center text-red-500/70 hover:text-red-500"> <i data-feather="trash-2" class="w-5 h-5"></i> </button> </div> </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- ESTADO DA APLICAÇÃO ---
+            // =================================================================================
+            // --- ESTADO E CONFIGURAÇÃO INICIAL ---
+            // =================================================================================
+            let appData = { profiles: [], selectedProfileId: null, currentSemesterId: null, currentSubjectId: null, currentTimeslotId: null, itemToDelete: null, itemToEdit: null };
+            let subjectChartInstance, generalChartInstance = null;
+            const subjectColors = {
+@@ -92,25 +101,26 @@
+                purple: { border: 'border-purple-500', bg: 'bg-purple-900', rgb: 'rgba(168, 85, 247, 0.5)' },
+                pink: { border: 'border-pink-500', bg: 'bg-pink-900', rgb: 'rgba(236, 72, 153, 0.5)' },
+            };
+
+            // --- ELEMENTOS DO DOM ---
+            const screens = { profileSelection: document.getElementById('profile-selection-screen'), createProfile: document.getElementById('create-profile-screen'), mainDashboard: document.getElementById('main-dashboard-screen') };
+            const modals = { addSemester: document.getElementById('add-semester-modal'), addSubject: document.getElementById('add-subject-modal'), addAssessment: document.getElementById('add-assessment-modal'), editAssessment: document.getElementById('edit-assessment-modal'), addToSchedule: document.getElementById('add-to-schedule-modal'), deleteConfirmation: document.getElementById('delete-confirmation-modal') };
+            const modals = { addSemester: document.getElementById('add-semester-modal'), addSubject: document.getElementById('add-subject-modal'), addAssessment: document.getElementById('add-assessment-modal'), editAssessment: document.getElementById('edit-assessment-modal'), addToSchedule: document.getElementById('add-to-schedule-modal'), deleteConfirmation: document.getElementById('delete-confirmation-modal'), aiAssistant: document.getElementById('ai-assistant-modal') };
+
+            // --- FUNÇÕES DE DADOS ---
+            // =================================================================================
+            // --- FUNÇÕES DE DADOS (CARREGAR E SALVAR) ---
+            // =================================================================================
+            function saveData() { localStorage.setItem('studentTrackerApp', JSON.stringify(appData)); }
+            function loadData() {
+                const savedData = localStorage.getItem('studentTrackerApp');
+                if (!savedData) return;
+                appData = JSON.parse(savedData);
+                // Migração de dados para novas estruturas
+                appData.profiles.forEach(profile => {
+                    if (profile.subjects && !profile.semesters) {
+                        profile.semesters = [{ id: Date.now(), name: "Período Padrão", subjects: profile.subjects }];
+                        delete profile.subjects;
+                    }
+                    if (!profile.schedule) profile.schedule = {};
+                    if (!profile.semesters) profile.semesters = [];
+                    if (!profile.todos) profile.todos = [];
+                    delete profile.notes; 
+                    profile.semesters.forEach(semester => {
+                        semester.subjects.forEach(subject => {
+                            if (subject.acronym === undefined) subject.acronym = '';
+@@ -127,65 +137,61 @@
+            function getCurrentProfile() { return appData.profiles.find(p => p.id === appData.selectedProfileId); }
+            function getCurrentSemester() { const profile = getCurrentProfile(); if (!profile || !appData.currentSemesterId) return null; return profile.semesters.find(s => s.id === appData.currentSemesterId); }
+
+            // --- FUNÇÕES DE CÁLCULO (IRA) ---
+            // =================================================================================
+            // --- FUNÇÕES DE CÁLCULO (MÉDIAS E IRA) ---
+            // =================================================================================
+            function calculateSubjectAverage(subject) {
+                if (!subject.assessments || subject.assessments.length === 0) return 0;
+                const totalPercentage = subject.assessments.reduce((sum, asm) => sum + ((asm.score / asm.maxScore) * 100), 0);
+                return totalPercentage / subject.assessments.length;
+                const totalScore = subject.assessments.reduce((sum, asm) => sum + (asm.score / asm.maxScore), 0);
+                return (totalScore / subject.assessments.length) * 10;
+            }
+            function calculateIra(subjects) {
+                let totalCredits = 0;
+                let weightedSum = 0;
+                subjects.forEach(subject => {
+                    const credits = subject.credits || 0;
+                    if (credits > 0 && subject.assessments.length > 0) {
+                        const average = calculateSubjectAverage(subject);
+                        const average = calculateSubjectAverage(subject) * 10;
+                        weightedSum += (average * credits);
+                        totalCredits += credits;
+                    }
+                });
+                if (totalCredits === 0) return "0.00";
+                const ira = weightedSum / totalCredits;
+                return (ira / 10).toFixed(2); // Retorna IRA na escala 0-10
+                return (ira / 10).toFixed(2);
+            }
+
+            // =================================================================================
+            // --- FUNÇÕES DE UI E NAVEGAÇÃO ---
+            // =================================================================================
+            function showScreen(screenName) { Object.values(screens).forEach(s => s.classList.add('hidden')); if(screens[screenName]) screens[screenName].classList.remove('hidden'); }
+            function showModal(modalName) { if(modals[modalName]) modals[modalName].classList.remove('hidden'); }
+            function hideModals() { Object.values(modals).forEach(m => m.classList.add('hidden')); }
+            function switchView(viewName) {
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = ''; // Limpa a área de conteúdo
+                contentArea.innerHTML = '';
+                document.querySelectorAll('.nav-button').forEach(btn => {
+                    btn.classList.toggle('bg-neutral-800', btn.dataset.view === viewName);
+                    btn.classList.toggle('text-white', btn.dataset.view === viewName);
+                    btn.classList.toggle('text-neutral-400', btn.dataset.view !== viewName);
+                });
+                if (viewName === 'semesters-view') renderSemestersList();
+                if (viewName === 'schedule-view') renderScheduleGrid();
+                else if (viewName === 'schedule-view') renderScheduleGrid();
+                else if (viewName === 'profile-view') renderProfileView();
+                else if (viewName === 'todo-view') renderTodoView();
+            }
+
+            // --- FUNÇÕES DE RENDERIZAÇÃO ---
+            // =================================================================================
+            // --- FUNÇÕES DE RENDERIZAÇÃO DE COMPONENTES ---
+            // =================================================================================
+            function renderProfiles() { const list = document.getElementById('profiles-list'); list.innerHTML = ''; document.getElementById('add-profile-button').textContent = appData.profiles.length === 0 ? 'Criar Novo Perfil' : 'Adicionar Outro Perfil'; appData.profiles.forEach(profile => { const card = document.getElementById('profile-card-template').content.cloneNode(true); const div = card.querySelector('.group'); div.querySelector('img').src = profile.photoUrl || `https://placehold.co/160x160/1a1a1a/ffffff?text=${profile.name.charAt(0)}`; div.querySelector('.profile-card-name').textContent = profile.name; div.querySelector('.profile-card-university').textContent = profile.university; div.addEventListener('click', () => selectProfile(profile.id)); list.appendChild(card); }); }
+            function renderDashboard() { const profile = getCurrentProfile(); if (!profile) return; document.getElementById('welcome-message').textContent = `${profile.name}`; switchView('semesters-view'); }
+            function renderSemestersList() {
+                const profile = getCurrentProfile();
+                const allSubjects = profile.semesters.flatMap(s => s.subjects);
+                const overallIra = calculateIra(allSubjects);
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `
+                    <div class="mb-8">
+                        <div class="bg-neutral-900 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-neutral-400">IRA Geral</h3>
+                            <p class="text-5xl font-bold text-white">${overallIra}</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold">Semestres</h2>
+                        <button id="open-add-semester-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus-circle" class="w-5 h-5"></i><span>Novo Semestre</span></button>
+                    </div>
+                    <div id="semesters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+                `;
+                contentArea.innerHTML = `<div class="mb-8"><div class="bg-neutral-900 rounded-lg p-6"><h3 class="text-lg font-semibold text-neutral-400">IRA Geral</h3><p class="text-5xl font-bold text-white">${overallIra}</p></div></div><div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold">Semestres</h2><button id="open-add-semester-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus-circle" class="w-5 h-5"></i><span>Novo Semestre</span></button></div><div id="semesters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>`;
+                const grid = document.getElementById('semesters-grid');
+                profile.semesters.forEach(semester => {
+                    const card = document.getElementById('semester-card-template').content.cloneNode(true);
+@@ -232,12 +238,7 @@
+                const semester = getCurrentSemester();
+                const subject = semester.subjects.find(s => s.id === appData.currentSubjectId);
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `<div class="flex justify-between items-center mb-6"><button id="back-to-subjects" class="text-neutral-400 hover:text-white flex items-center gap-2"><i data-feather="arrow-left"></i> <span>Voltar para ${semester.name}</span></button><button id="open-add-assessment-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus"></i> <span>Nova Avaliação</span></button></div>
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold">${subject.name} (${subject.acronym || 'N/A'})</h2>
+                    <p class="text-neutral-400 mt-1">Professor(a): ${subject.professor || 'Não informado'} | Sala: ${subject.classroom || 'Não informada'} | Créditos: ${subject.credits || 0}</p>
+                </div>
+                <div class="my-6"><div class="bg-neutral-900 p-4 rounded-lg"><canvas id="subject-chart"></canvas></div></div><h3 class="text-2xl font-bold mb-4">Avaliações</h3><div id="assessments-list" class="bg-neutral-900 rounded-lg overflow-hidden"></div>`;
+                contentArea.innerHTML = `<div class="flex justify-between items-center mb-6"><button id="back-to-subjects" class="text-neutral-400 hover:text-white flex items-center gap-2"><i data-feather="arrow-left"></i> <span>Voltar para ${semester.name}</span></button><button id="open-add-assessment-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus"></i> <span>Nova Avaliação</span></button></div><div class="mb-6"><h2 class="text-3xl font-bold">${subject.name} (${subject.acronym || 'N/A'})</h2><p class="text-neutral-400 mt-1">Professor(a): ${subject.professor || 'Não informado'} | Sala: ${subject.classroom || 'Não informada'} | Créditos: ${subject.credits || 0}</p></div><div class="my-6"><div class="bg-neutral-900 p-4 rounded-lg"><canvas id="subject-chart"></canvas></div></div><h3 class="text-2xl font-bold mb-4">Avaliações</h3><div id="assessments-list" class="bg-neutral-900 rounded-lg overflow-hidden"></div>`;
+                renderAssessments(subject);
+                renderSubjectChart(subject);
+                document.getElementById('back-to-subjects').addEventListener('click', () => renderSingleSemesterView(semester.id));
+@@ -294,113 +295,134 @@
+                document.querySelectorAll('.empty-cell').forEach(cell => cell.addEventListener('click', () => handleOpenScheduleModal(cell.dataset.timeslot)));
+                document.querySelectorAll('.remove-class').forEach(button => button.addEventListener('click', (e) => { e.stopPropagation(); handleRemoveFromSchedule(button.dataset.timeslot); }));
+            }
+            function renderProfileView() {
+                const profile = getCurrentProfile();
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `<div class="max-w-2xl mx-auto"><h2 class="text-3xl font-bold mb-6">Editar Perfil</h2><div class="bg-neutral-900 p-8 rounded-2xl shadow-lg"><form id="edit-profile-form" class="flex flex-col gap-4"><div><label for="profile-name-edit" class="block text-sm font-medium text-neutral-400 mb-2">Nome</label><input type="text" id="profile-name-edit" value="${profile.name}" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required></div><div><label for="profile-university-edit" class="block text-sm font-medium text-neutral-400 mb-2">Sigla da Faculdade</label><input type="text" id="profile-university-edit" value="${profile.university}" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required></div><div><label for="profile-photo-edit" class="block text-sm font-medium text-neutral-400 mb-2">URL da Foto (opcional)</label><input type="url" id="profile-photo-edit" value="${profile.photoUrl || ''}" placeholder="URL da imagem..." class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg"></div><div class="flex items-center justify-end mt-6 gap-4"><button type="submit" class="px-6 py-3 bg-white text-black rounded-lg font-semibold hover:bg-neutral-200 transition-colors">Salvar Alterações</button></div></form></div><div class="mt-10 border-t border-red-800/30 pt-6"><h3 class="text-xl font-bold text-red-400">Zona de Perigo</h3><p class="text-neutral-400 my-2 text-sm">A exclusão da sua conta é uma ação irreversível. Todos os seus dados, incluindo semestres, matérias e notas, serão perdidos para sempre.</p><button id="open-delete-profile-modal-button" class="mt-2 px-5 py-2.5 bg-red-800 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold"><i data-feather="trash-2" class="w-5 h-5"></i><span>Excluir Minha Conta</span></button></div></div>`;
+                feather.replace();
+                document.getElementById('edit-profile-form').addEventListener('submit', handleUpdateProfile);
+                document.getElementById('open-delete-profile-modal-button').addEventListener('click', () => openDeleteConfirmationModal('profile', profile.id, profile.name));
+            }
+            function renderTodoView() {
+                const profile = getCurrentProfile();
+                const contentArea = document.getElementById('dashboard-content');
+                contentArea.innerHTML = `<div class="max-w-3xl mx-auto"><div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold">Lista de Tarefas</h2></div><form id="add-todo-form" class="flex gap-2 mb-6"><input type="text" id="add-todo-input" placeholder="Adicionar nova tarefa..." class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><button type="submit" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="plus" class="w-5 h-5"></i><span>Adicionar</span></button></form><div id="todo-list" class="flex flex-col gap-3"></div></div>`;
+                const listContainer = document.getElementById('todo-list');
+                const sortedTodos = [...profile.todos].sort((a,b) => a.completed - b.completed);
+                if (sortedTodos.length === 0) { listContainer.innerHTML = '<p class="text-neutral-500 text-center mt-8">Nenhuma tarefa por aqui. Adicione uma acima para começar!</p>'; } 
+                else { sortedTodos.forEach(todo => { const item = document.getElementById('todo-item-template').content.cloneNode(true); const label = item.querySelector('.todo-item-text'); const checkbox = item.querySelector('.todo-checkbox'); label.textContent = todo.text; checkbox.checked = todo.completed; if(todo.completed) { label.classList.add('completed'); } label.addEventListener('click', () => handleToggleTodo(todo.id)); checkbox.addEventListener('change', () => handleToggleTodo(todo.id)); item.querySelector('.todo-delete-button').addEventListener('click', () => handleDeleteTodo(todo.id)); listContainer.appendChild(item); }); }
+                document.getElementById('add-todo-form').addEventListener('submit', handleAddTodo);
+                feather.replace();
+            }
+            const chartOptions = { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100, grid: { color: '#262626' } }, x: { grid: { color: '#262626' } } }, plugins: { legend: { labels: { color: '#ffffff' } } }, tension: 0.4 };
+            function renderSubjectChart(subject) { const ctx = document.getElementById('subject-chart').getContext('2d'); if (subjectChartInstance) subjectChartInstance.destroy(); const labels = subject.assessments.map(a => a.name); const data = subject.assessments.map(a => (a.score / a.maxScore * 100)); subjectChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Desempenho (%)', data: data, borderColor: subjectColors[subject.color]?.rgb.replace(', 0.5)', ', 1)') || 'rgb(255,255,255)', backgroundColor: subjectColors[subject.color]?.rgb || 'rgba(255, 255, 255, 0.2)', fill: true, }] }, options: chartOptions }); }
+            function renderGeneralChart(semester) { const container = document.getElementById('general-chart-container'); if (!container) return; if (!semester || semester.subjects.length === 0) { container.classList.add('hidden'); return; } container.classList.remove('hidden'); const ctx = document.getElementById('general-chart').getContext('2d'); if (generalChartInstance) generalChartInstance.destroy(); let maxAssessments = 0; semester.subjects.forEach(s => { if (s.assessments.length > maxAssessments) maxAssessments = s.assessments.length; }); const labels = Array.from({ length: maxAssessments }, (_, i) => `Avaliação ${i + 1}`); const datasets = semester.subjects.map(subject => { const data = []; for(let i=0; i < maxAssessments; i++) { const asm = subject.assessments[i]; data.push(asm ? (asm.score / asm.maxScore * 100) : null); } return { label: subject.name, data: data, borderColor: subjectColors[subject.color]?.rgb.replace(', 0.5)', ', 1)') || 'rgb(255,255,255)', fill: false } }); generalChartInstance = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: chartOptions }); }
+
+            // --- MANIPULADORES DE EVENTOS ---
+            function handleCreateProfile(e) { e.preventDefault(); const name = document.getElementById('profile-name').value.trim(); const university = document.getElementById('profile-university').value.trim(); const photoUrl = document.getElementById('profile-photo').value.trim(); if (!name || !university) return; appData.profiles.push({ id: Date.now(), name, university, photoUrl, semesters: [], schedule: {} }); saveData(); renderProfiles(); e.target.reset(); showScreen('profileSelection'); }
+            // =================================================================================
+            // --- MANIPULADORES DE EVENTOS (HANDLERS) ---
+            // =================================================================================
+            function handleCreateProfile(e) { e.preventDefault(); const name = document.getElementById('profile-name').value.trim(); const university = document.getElementById('profile-university').value.trim(); const photoUrl = document.getElementById('profile-photo').value.trim(); if (!name || !university) return; appData.profiles.push({ id: Date.now(), name, university, photoUrl, semesters: [], schedule: {}, todos: [] }); saveData(); renderProfiles(); e.target.reset(); showScreen('profileSelection'); }
+            function handleUpdateProfile(e) { e.preventDefault(); const profile = getCurrentProfile(); if (!profile) return; const newName = document.getElementById('profile-name-edit').value.trim(); const newUniversity = document.getElementById('profile-university-edit').value.trim(); const newPhotoUrl = document.getElementById('profile-photo-edit').value.trim(); if (!newName || !newUniversity) { alert('O nome e a sigla da faculdade são obrigatórios.'); return; } profile.name = newName; profile.university = newUniversity; profile.photoUrl = newPhotoUrl; saveData(); document.getElementById('welcome-message').textContent = `${profile.name}`; renderProfiles(); alert('Perfil atualizado com sucesso!'); }
+            function handleAddSemester(e) { e.preventDefault(); const name = document.getElementById('semester-name').value.trim(); if (!name) return; const profile = getCurrentProfile(); profile.semesters.push({ id: Date.now(), name, subjects: [] }); saveData(); renderSemestersList(); e.target.reset(); hideModals(); }
+            function handleAddSubject(e) {
+                e.preventDefault();
+                const name = document.getElementById('subject-name').value.trim();
+                const acronym = document.getElementById('subject-acronym').value.trim();
+                const professor = document.getElementById('subject-professor').value.trim();
+                const classroom = document.getElementById('subject-classroom').value.trim();
+                const credits = parseInt(document.getElementById('subject-credits').value) || 0;
+                const selectedColor = document.querySelector('input[name="color-choice"]:checked');
+                if (!name || !selectedColor) { alert('Por favor, preencha pelo menos o nome e escolha uma cor.'); return; }
+                const semester = getCurrentSemester();
+                semester.subjects.push({ id: Date.now(), name, acronym, professor, classroom, credits, color: selectedColor.value, assessments: [] });
+                saveData();
+                renderSingleSemesterView(semester.id);
+                e.target.reset();
+                hideModals();
+            }
+            function handleAddAssessment(e) { 
+                e.preventDefault(); 
+                const name = document.getElementById('assessment-name').value.trim(); 
+                const score = parseFloat(document.getElementById('assessment-score').value); 
+                const maxScore = parseFloat(document.getElementById('assessment-max-score').value); 
+                if (!name || isNaN(score) || isNaN(maxScore) || maxScore <= 0) { alert('Preencha os campos corretamente.'); return; } 
+                const semester = getCurrentSemester(); 
+                const subject = semester.subjects.find(s => s.id === appData.currentSubjectId); 
+                subject.assessments.push({ id: Date.now() + Math.random(), name, score, maxScore }); 
+                saveData(); 
+                showSubjectDetails(subject.id); 
+                e.target.reset(); 
+                hideModals(); 
+            }
+            function handleOpenEditAssessmentModal(assessment) {
+                appData.itemToEdit = { assessmentId: assessment.id };
+                showModal('editAssessment');
+                document.getElementById('edit-assessment-name').value = assessment.name;
+                document.getElementById('edit-assessment-score').value = assessment.score;
+                document.getElementById('edit-assessment-max-score').value = assessment.maxScore;
+            }
+            function handleEditAssessment(e) {
+                e.preventDefault();
+                const { assessmentId } = appData.itemToEdit;
+                const newName = document.getElementById('edit-assessment-name').value.trim();
+                const newScore = parseFloat(document.getElementById('edit-assessment-score').value);
+                const newMaxScore = parseFloat(document.getElementById('edit-assessment-max-score').value);
+
+                if (!newName || isNaN(newScore) || isNaN(newMaxScore) || newMaxScore <= 0) {
+                    alert('Preencha os campos corretamente.');
+                    return;
+                }
+            function handleAddSubject(e) { e.preventDefault(); const name = document.getElementById('subject-name').value.trim(); const acronym = document.getElementById('subject-acronym').value.trim(); const professor = document.getElementById('subject-professor').value.trim(); const classroom = document.getElementById('subject-classroom').value.trim(); const credits = parseInt(document.getElementById('subject-credits').value) || 0; const selectedColor = document.querySelector('input[name="color-choice"]:checked'); if (!name || !selectedColor) { alert('Por favor, preencha pelo menos o nome e escolha uma cor.'); return; } const semester = getCurrentSemester(); semester.subjects.push({ id: Date.now(), name, acronym, professor, classroom, credits, color: selectedColor.value, assessments: [] }); saveData(); renderSingleSemesterView(semester.id); e.target.reset(); hideModals(); }
+            function handleAddAssessment(e) { e.preventDefault(); const name = document.getElementById('assessment-name').value.trim(); const score = parseFloat(document.getElementById('assessment-score').value); const maxScore = parseFloat(document.getElementById('assessment-max-score').value); if (!name || isNaN(score) || isNaN(maxScore) || maxScore <= 0) { alert('Preencha os campos corretamente.'); return; } const semester = getCurrentSemester(); const subject = semester.subjects.find(s => s.id === appData.currentSubjectId); subject.assessments.push({ id: Date.now() + Math.random(), name, score, maxScore }); saveData(); showSubjectDetails(subject.id); e.target.reset(); hideModals(); }
+            function handleOpenEditAssessmentModal(assessment) { appData.itemToEdit = { assessmentId: assessment.id }; showModal('editAssessment'); document.getElementById('edit-assessment-name').value = assessment.name; document.getElementById('edit-assessment-score').value = assessment.score; document.getElementById('edit-assessment-max-score').value = assessment.maxScore; }
+            function handleEditAssessment(e) { e.preventDefault(); const { assessmentId } = appData.itemToEdit; const newName = document.getElementById('edit-assessment-name').value.trim(); const newScore = parseFloat(document.getElementById('edit-assessment-score').value); const newMaxScore = parseFloat(document.getElementById('edit-assessment-max-score').value); if (!newName || isNaN(newScore) || isNaN(newMaxScore) || newMaxScore <= 0) { alert('Preencha os campos corretamente.'); return; } const semester = getCurrentSemester(); const subject = semester.subjects.find(s => s.id === appData.currentSubjectId); const assessment = subject.assessments.find(a => a.id === assessmentId); assessment.name = newName; assessment.score = newScore; assessment.maxScore = newMaxScore; saveData(); showSubjectDetails(subject.id); hideModals(); appData.itemToEdit = null; }
+            function handleAddTodo(e) { e.preventDefault(); const input = document.getElementById('add-todo-input'); const text = input.value.trim(); if (text) { const profile = getCurrentProfile(); profile.todos.unshift({ id: Date.now(), text, completed: false }); saveData(); renderTodoView(); } }
+            function handleToggleTodo(todoId) { const profile = getCurrentProfile(); const todo = profile.todos.find(t => t.id === todoId); if (todo) { todo.completed = !todo.completed; saveData(); renderTodoView(); } }
+            function handleDeleteTodo(todoId) { const profile = getCurrentProfile(); profile.todos = profile.todos.filter(t => t.id !== todoId); saveData(); renderTodoView(); }
+            function selectProfile(profileId) { appData.selectedProfileId = parseInt(profileId); saveData(); renderDashboard(); showScreen('mainDashboard'); }
+            function logout() { appData.selectedProfileId = null; saveData(); showScreen('profileSelection'); }
+            function openDeleteConfirmationModal(type, id, name) { appData.itemToDelete = { type, id: id }; const message = document.getElementById('delete-confirmation-message'); if (type === 'semester') { message.textContent = `Tem certeza que deseja excluir o semestre "${name}"? Todas as matérias e notas contidas nele serão perdidas para sempre.`; } else if (type === 'subject') { message.textContent = `Tem certeza que deseja excluir a matéria "${name}"? Todas as suas avaliações serão perdidas.`; } else if (type === 'profile') { message.textContent = `Tem certeza que deseja excluir o perfil de "${name}"? Todos os seus dados serão perdidos para sempre. Essa ação não pode ser desfeita.`; } else { message.textContent = `Tem certeza que deseja excluir a avaliação "${name}"?`; } showModal('deleteConfirmation'); }
+            function handleDeleteItem() { if (!appData.itemToDelete) return; const { type, id } = appData.itemToDelete; const profile = getCurrentProfile(); const semester = getCurrentSemester(); if (type === 'semester') { profile.semesters = profile.semesters.filter(s => s.id !== id); renderSemestersList(); } else if (type === 'subject') { if (semester) { semester.subjects = semester.subjects.filter(s => s.id !== id); Object.keys(profile.schedule).forEach(timeslot => { if (profile.schedule[timeslot] === id) { delete profile.schedule[timeslot]; } }); renderSingleSemesterView(semester.id); } } else if (type === 'assessment') { if (semester) { const subject = semester.subjects.find(s => s.id === appData.currentSubjectId); if (subject) { subject.assessments = subject.assessments.filter(a => a.id !== id); showSubjectDetails(subject.id); } } } else if (type === 'profile') { appData.profiles = appData.profiles.filter(p => p.id !== id); logout(); } saveData(); hideModals(); appData.itemToDelete = null; }
+            function handleOpenScheduleModal(timeslotId) { appData.currentTimeslotId = timeslotId; const [day, hour] = timeslotId.split('-'); const dayNames = { mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado' }; document.getElementById('schedule-modal-timeslot').textContent = `${dayNames[day]} às ${hour}:00`; const list = document.getElementById('schedule-subject-list'); const profile = getCurrentProfile(); const allSubjects = profile.semesters.flatMap(sem => sem.subjects); list.innerHTML = ''; if (allSubjects.length === 0) { list.innerHTML = '<p class="text-neutral-400">Crie uma matéria primeiro.</p>'; } else { allSubjects.forEach(subject => { const colorClass = subjectColors[subject.color]?.bg || 'bg-neutral-700'; list.innerHTML += `<button data-subject-id="${subject.id}" class="schedule-add-button w-full text-left p-3 rounded-md ${colorClass} hover:opacity-80 transition-opacity">${subject.name}</button>`; }); } document.querySelectorAll('.schedule-add-button').forEach(btn => btn.addEventListener('click', (e) => handleAddToSchedule(e.currentTarget.dataset.subjectId))); showModal('addToSchedule'); }
+            function handleAddToSchedule(subjectId) { const profile = getCurrentProfile(); profile.schedule[appData.currentTimeslotId] = parseInt(subjectId); saveData(); renderScheduleGrid(); hideModals(); }
+            function handleRemoveFromSchedule(timeslotId) { const profile = getCurrentProfile(); delete profile.schedule[timeslotId]; saveData(); renderScheduleGrid(); }
+            
+            // =================================================================================
+            // --- LÓGICA DO ASSISTENTE IA ---
+            // =================================================================================
+            function renderAiAssistant() {
+                const modal = modals.aiAssistant;
+                modal.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-3xl border border-neutral-700"><div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-white flex items-center gap-3"><i data-feather="cpu" class="text-blue-400"></i>Assistente IA</h3><button type="button" class="modal-cancel-button text-neutral-400 hover:text-white">&times;</button></div><div id="ai-initial-view"><div id="ai-suggestions-container" class="max-h-80 overflow-y-auto pr-2 mb-6"></div><h4 class="font-semibold mb-3 text-neutral-300">Perguntas Rápidas</h4><div id="ai-quick-questions" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div></div><div id="ai-answer-view" class="hidden"><button id="ai-back-button" class="text-blue-400 mb-4 flex items-center gap-2 text-sm"><i data-feather="arrow-left"></i> Voltar</button><div id="ai-answer-content"></div></div><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Fechar</button></div></div>`;
+                
+                const suggestionsContainer = modal.querySelector('#ai-suggestions-container');
+                const questionsContainer = modal.querySelector('#ai-quick-questions');
+                const answerView = modal.querySelector('#ai-answer-view');
+                const initialView = modal.querySelector('#ai-initial-view');
+                const backButton = modal.querySelector('#ai-back-button');
+
+                const semester = getCurrentSemester();
+                const subject = semester.subjects.find(s => s.id === appData.currentSubjectId);
+                const assessment = subject.assessments.find(a => a.id === assessmentId);
+                const suggestions = generateAiSuggestions();
+                let suggestionsHTML = '';
+                if(suggestions.length === 0){ suggestionsHTML = `<div class="flex items-center gap-4 p-4"><i data-feather="coffee" class="w-6 h-6 text-green-400"></i><p>Tudo certo por aqui! Nenhum alerta crítico no momento. Continue o bom trabalho!</p></div>` }
+                else { suggestions.forEach(s => { suggestionsHTML += `<div class="flex items-start gap-4 p-4 bg-neutral-800/50 rounded-lg mb-3"><i data-feather="${s.icon}" class="w-6 h-6 ${s.color} mt-1"></i><p class="flex-1 text-neutral-300">${s.text}</p></div>`; }); }
+                suggestionsContainer.innerHTML = suggestionsHTML;
+
+                assessment.name = newName;
+                assessment.score = newScore;
+                assessment.maxScore = newMaxScore;
+                const questions = [ { key: 'worst_subject', text: 'Qual matéria precisa de mais atenção?' }, { key: 'best_subject', text: 'Qual minha melhor matéria?' }, { key: 'next_class', text: 'Qual minha próxima aula hoje?' }, { key: 'pending_tasks', text: 'O que preciso fazer?' } ];
+                questions.forEach(q => { questionsContainer.innerHTML += `<button data-question-key="${q.key}" class="ai-question-button text-left w-full p-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors">${q.text}</button>`; });
+
+                saveData();
+                showSubjectDetails(subject.id);
+                hideModals();
+                appData.itemToEdit = null;
+                modal.querySelectorAll('.ai-question-button').forEach(btn => btn.addEventListener('click', () => handleAiQuickQuestion(btn.dataset.questionKey)));
+                backButton.addEventListener('click', () => { answerView.classList.add('hidden'); initialView.classList.remove('hidden'); });
+                modal.querySelectorAll('.modal-cancel-button').forEach(btn => btn.addEventListener('click', hideModals));
+                
+                feather.replace();
+                showModal('aiAssistant');
+            }
+            function selectProfile(profileId) { appData.selectedProfileId = parseInt(profileId); saveData(); renderDashboard(); showScreen('mainDashboard'); }
+            function logout() { appData.selectedProfileId = null; saveData(); showScreen('profileSelection'); }
+            function openDeleteConfirmationModal(type, id, name) { appData.itemToDelete = { type, id: id }; const message = document.getElementById('delete-confirmation-message'); if (type === 'semester') { message.textContent = `Tem certeza que deseja excluir o semestre "${name}"? Todas as matérias e notas contidas nele serão perdidas para sempre.`; } else if (type === 'subject') { message.textContent = `Tem certeza que deseja excluir a matéria "${name}"? Todas as suas avaliações serão perdidas.`; } else { message.textContent = `Tem certeza que deseja excluir a avaliação "${name}"?`; } showModal('deleteConfirmation'); }
+            function handleDeleteItem() {
+                if (!appData.itemToDelete) return;
+                const { type, id } = appData.itemToDelete;
+
+            function handleAiQuickQuestion(questionKey) {
+                const profile = getCurrentProfile();
+                const semester = getCurrentSemester();
+                const allSubjects = profile.semesters.flatMap(s => s.subjects).filter(s => s.assessments.length > 0);
+                let answer = { icon: 'help-circle', text: 'Não tenho dados suficientes para responder a isso ainda. Adicione mais matérias e avaliações no app!' };
+
+                if (type === 'semester') {
+                    profile.semesters = profile.semesters.filter(s => s.id !== id);
+                    renderSemestersList();
+                } else if (type === 'subject') {
+                    if (semester) {
+                        semester.subjects = semester.subjects.filter(s => s.id !== id);
+                        Object.keys(profile.schedule).forEach(timeslot => { if (profile.schedule[timeslot] === id) { delete profile.schedule[timeslot]; } });
+                        renderSingleSemesterView(semester.id);
+                    }
+                } else if (type === 'assessment') {
+                    if (semester) {
+                        const subject = semester.subjects.find(s => s.id === appData.currentSubjectId);
+                        if (subject) {
+                            subject.assessments = subject.assessments.filter(a => a.id !== id);
+                            showSubjectDetails(subject.id);
+                        }
+                    }
+                if (questionKey === 'worst_subject') {
+                    if (allSubjects.length > 0) { const worst = allSubjects.reduce((min, s) => calculateSubjectAverage(s) < calculateSubjectAverage(min) ? s : min); answer = { icon: 'trending-down', text: `A matéria que exige mais atenção é <strong>${worst.name}</strong>, com média <strong>${calculateSubjectAverage(worst).toFixed(1)}</strong>.` }; }
+                } else if (questionKey === 'best_subject') {
+                    if (allSubjects.length > 0) { const best = allSubjects.reduce((max, s) => calculateSubjectAverage(s) > calculateSubjectAverage(max) ? s : max); answer = { icon: 'trending-up', text: `Sua melhor matéria é <strong>${best.name}</strong>, com uma ótima média de <strong>${calculateSubjectAverage(best).toFixed(1)}</strong>. Parabéns!` }; }
+                } else if (questionKey === 'pending_tasks') {
+                    const pending = profile.todos.filter(t => !t.completed);
+                    if (pending.length > 0) { answer = { icon: 'list', text: `Você tem ${pending.length} tarefa(s) pendente(s): <ul class="mt-2">${pending.map(t => `<li class="ml-4 list-disc">${t.text}</li>`).join('')}</ul>` }; }
+                    else { answer = { icon: 'check-circle', text: 'Você está em dia com suas tarefas! Nenhuma pendência encontrada.' }; }
+                } else if (questionKey === 'next_class') {
+                    const dayMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                    const now = new Date();
+                    const upcoming = Object.keys(profile.schedule).filter(k => k.startsWith(dayMap[now.getDay()]) && parseInt(k.split('-')[1]) >= now.getHours()).sort((a,b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1]));
+                    if (upcoming.length > 0) {
+                        const subject = profile.semesters.flatMap(s=>s.subjects).find(s => s.id === profile.schedule[upcoming[0]]);
+                        if (subject) { answer = { icon: 'calendar', text: `Sua próxima aula hoje é <strong>${subject.name}</strong> às ${upcoming[0].split('-')[1]}:00.` }; }
+                        else { answer = { icon: 'search', text: 'Encontrei um horário agendado, mas a matéria foi removida. Verifique sua grade.' }; }
+                    } else { answer = { icon: 'coffee', text: 'Você não tem mais aulas agendadas para hoje. Aproveite para descansar ou estudar!' }; }
+                }
+                saveData();
+                hideModals();
+                appData.itemToDelete = null;
+
+                const answerContent = document.getElementById('ai-answer-content');
+                answerContent.innerHTML = `<div class="flex items-start gap-4 p-4 bg-neutral-800 rounded-lg"><i data-feather="${answer.icon}" class="w-6 h-6 text-blue-400 mt-1"></i><p class="flex-1 text-neutral-200">${answer.text}</p></div>`;
+                feather.replace();
+                document.getElementById('ai-initial-view').classList.add('hidden');
+                document.getElementById('ai-answer-view').classList.remove('hidden');
+            }
+
+            function generateAiSuggestions() {
+                const profile = getCurrentProfile();
+                const suggestions = [];
+                const allSubjects = profile.semesters.flatMap(s => s.subjects);
+                
+                if (allSubjects.length === 0) { suggestions.push({ icon: 'book-open', color: 'text-blue-400', text: 'Bem-vindo! Comece adicionando suas matérias na aba "Matérias" para que eu possa ajudar você a se organizar.' }); }
+
+                const subjectsWithAssessments = allSubjects.filter(s => s.assessments.length > 0);
+                const overallIra = parseFloat(calculateIra(subjectsWithAssessments));
+                if (overallIra < 7.0 && subjectsWithAssessments.length > 0) { suggestions.push({ icon: 'alert-triangle', color: 'text-yellow-400', text: `Seu IRA geral está em <strong>${overallIra.toFixed(2)}</strong>. Foque nas matérias com notas mais baixas.` }); }
+                subjectsWithAssessments.forEach(subject => { const avg = calculateSubjectAverage(subject); if (avg < 6.0) { suggestions.push({ icon: 'alert-triangle', color: 'text-red-400', text: `Sua média em <strong>${subject.name}</strong> está baixa (${avg.toFixed(1)}). Dedique um tempo extra para esta matéria.` }); } });
+                
+                const pendingTodos = profile.todos.filter(t => !t.completed);
+                if (pendingTodos.length > 2) { suggestions.push({ icon: 'list', color: 'text-yellow-400', text: `Você tem <strong>${pendingTodos.length} tarefas pendentes</strong>. É uma boa hora para começar a resolvê-las!` }); }
+                
+                if (suggestions.length === 0 && (subjectsWithAssessments.length > 0 || profile.todos.length > 0)) { suggestions.push({ icon: 'check-circle', color: 'text-green-400', text: `Parabéns! Suas notas estão boas e você não tem muitas tarefas acumuladas. Continue assim!` }); }
+                return suggestions;
+            }
+            function handleOpenScheduleModal(timeslotId) { appData.currentTimeslotId = timeslotId; const [day, hour] = timeslotId.split('-'); const dayNames = { mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado' }; document.getElementById('schedule-modal-timeslot').textContent = `${dayNames[day]} às ${hour}:00`; const list = document.getElementById('schedule-subject-list'); const profile = getCurrentProfile(); const allSubjects = profile.semesters.flatMap(sem => sem.subjects); list.innerHTML = ''; if (allSubjects.length === 0) { list.innerHTML = '<p class="text-neutral-400">Crie uma matéria primeiro.</p>'; } else { allSubjects.forEach(subject => { const colorClass = subjectColors[subject.color]?.bg || 'bg-neutral-700'; list.innerHTML += `<button data-subject-id="${subject.id}" class="schedule-add-button w-full text-left p-3 rounded-md ${colorClass} hover:opacity-80 transition-opacity">${subject.name}</button>`; }); } document.querySelectorAll('.schedule-add-button').forEach(btn => btn.addEventListener('click', (e) => handleAddToSchedule(e.currentTarget.dataset.subjectId))); showModal('addToSchedule'); }
+            function handleAddToSchedule(subjectId) { const profile = getCurrentProfile(); profile.schedule[appData.currentTimeslotId] = parseInt(subjectId); saveData(); renderScheduleGrid(); hideModals(); }
+            function handleRemoveFromSchedule(timeslotId) { const profile = getCurrentProfile(); delete profile.schedule[timeslotId]; saveData(); renderScheduleGrid(); }
+
+            // --- INICIALIZAÇÃO ---
+            // =================================================================================
+            // --- INICIALIZAÇÃO DA APLICAÇÃO ---
+            // =================================================================================
+            function init() {
+                // Preenche o HTML dos modais
+                document.getElementById('create-profile-screen').innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h2 class="text-3xl font-bold mb-6 text-center">Criar Novo Perfil</h2><form id="create-profile-form" class="flex flex-col gap-4"><input type="text" id="profile-name" placeholder="Seu Nome" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><input type="text" id="profile-university" placeholder="Sigla da Faculdade" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><input type="url" id="profile-photo" placeholder="URL da foto (opcional)" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg"><div class="flex items-center justify-between mt-4 gap-4"><button type="button" id="cancel-creation-button" class="w-full px-6 py-3 bg-neutral-700 rounded-lg">Voltar</button><button type="submit" class="w-full px-6 py-3 bg-white text-black rounded-lg font-semibold">Criar</button></div></form></div>`;
+                modals.addSemester.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Adicionar Novo Semestre</h3><form id="add-semester-form"><input type="text" id="semester-name" placeholder="Nome do Semestre (ex: 2025.1)" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button type="submit" class="px-6 py-2 bg-white text-black rounded-lg font-semibold">Salvar</button></div></form></div>`;
+                modals.addSubject.innerHTML = `<div class="bg-neutral-900 p-8 rounded-2xl shadow-lg w-full max-w-md"><h3 class="text-2xl font-bold mb-6">Adicionar Nova Matéria</h3><form id="add-subject-form"><div class="flex flex-col gap-4"><input type="text" id="subject-name" placeholder="Nome da Matéria (ex: Cálculo I)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg" required><input type="text" id="subject-acronym" placeholder="Sigla (ex: CALC1)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><input type="text" id="subject-professor" placeholder="Nome do Professor" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><input type="text" id="subject-classroom" placeholder="Sala (ex: B-204)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><input type="number" id="subject-credits" placeholder="Carga Horária (Créditos)" class="w-full p-3 bg-neutral-800 border-neutral-700 rounded-lg"><div class="mb-2"><label class="block text-sm font-medium text-neutral-400 mb-2">Cor do Marcador</label><div id="color-options" class="flex gap-3"></div></div></div><div class="flex items-center justify-end mt-6 gap-4"><button type="button" class="modal-cancel-button px-6 py-2 bg-neutral-700 rounded-lg">Cancelar</button><button type="submit" class="px-6 py-2 bg-white text-black rounded-lg font-semibold">Salvar</button></div></form></div>`;
+@@ -419,10 +441,10 @@
+                    Object.keys(subjectColors).forEach(color => { colorContainer.innerHTML += `<label class="cursor-pointer"><input type="radio" name="color-choice" value="${color}" class="sr-only peer"><div class="w-8 h-8 rounded-full ${subjectColors[color].border.replace('border-', 'bg-')} peer-checked:ring-2 ring-white ring-offset-2 ring-offset-black"></div></label>`; });
+                }
+
+                // Listeners
+                document.getElementById('add-profile-button').addEventListener('click', () => showScreen('createProfile'));
+                document.getElementById('cancel-creation-button').addEventListener('click', () => showScreen('profileSelection'));
+                document.getElementById('logout-button').addEventListener('click', logout);
+                document.getElementById('ai-assistant-button').addEventListener('click', renderAiAssistant);
+                document.querySelectorAll('.nav-button').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+                document.querySelectorAll('.modal-cancel-button').forEach(btn => btn.addEventListener('click', hideModals));
+                document.getElementById('cancel-delete-button').addEventListener('click', hideModals);
+@@ -440,4 +462,4 @@
+        });
+    </script>
+</body>
+</html>
+</html>
