@@ -28,7 +28,7 @@
         .ring-offset-black { --tw-ring-offset-color: #000; }
         input[type='number']::-webkit-inner-spin-button,
         input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type='number'] { -moz-appearance: textfield; }
+        input[type='number'] { --moz-appearance: textfield; }
         
         .schedule-grid { display: grid; grid-template-columns: 60px repeat(6, 1fr); gap: 1px; }
         .schedule-cell, .schedule-header { background-color: #1a1a1a; min-height: 50px; display: flex; align-items: center; justify-content: center; font-size: 12px; padding: 4px; }
@@ -41,6 +41,8 @@
         tr:hover .assessment-actions { opacity: 1; }
         .todo-item-text.completed { text-decoration: line-through; color: #525252; }
         .tab-button.active { border-color: #3b82f6; color: #ffffff; }
+        .definition-display .edit-def-button { display: none; }
+        .definition-display:hover .edit-def-button { display: inline-block; }
     </style>
 </head>
 <body class="bg-black text-white">
@@ -71,7 +73,7 @@
     </div>
     
     <footer class="text-center text-xs text-neutral-600 py-4">
-        Copyright (C) Asabbath Engine 2025. versão 2.6.0.20250722
+        Copyright (C) One Viannay 2025. versão 3.0.0.20250809
     </footer>
 
     <div id="add-semester-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"></div>
@@ -84,7 +86,7 @@
     <template id="profile-card-template"> <div class="flex flex-col items-center gap-3 cursor-pointer group"> <img src="https://placehold.co/160x160/1a1a1a/ffffff?text=Perfil" alt="Foto do perfil" class="w-28 h-28 md:w-40 md:h-40 object-cover rounded-full border-4 border-transparent group-hover:border-white transition-all duration-300"> <span class="profile-card-name text-xl font-semibold text-neutral-200 group-hover:text-white"></span> <span class="profile-card-university text-sm font-medium text-neutral-400 group-hover:text-neutral-300"></span> </div> </template>
     <template id="semester-card-template"> <div class="semester-card bg-neutral-900 rounded-lg p-5 flex flex-col justify-between h-40 cursor-pointer relative group border-l-4 border-neutral-700 hover:border-white"> <button class="card-delete-button absolute top-2 right-2 w-8 h-8 rounded-full bg-red-800/50 hover:bg-red-800 items-center justify-center text-red-300 hover:text-white"> <i data-feather="trash-2" class="w-4 h-4"></i> </button> <div class="card-content flex-grow flex flex-col justify-between"> <div><h3 class="semester-card-name font-bold text-xl"></h3></div> <div class="mt-auto"> <p class="text-sm text-neutral-300 font-semibold">IRA: <span class="semester-ira font-bold text-white">0.00</span></p> <p class="text-right text-sm text-neutral-400"> <span class="subject-count">0 matérias</span> </p> </div> </div> </div> </template>
     <template id="subject-card-template"> <div class="subject-card bg-neutral-900 rounded-lg p-5 flex flex-col justify-between h-36 cursor-pointer relative group border-l-4"> <button class="card-delete-button absolute top-2 right-2 w-8 h-8 rounded-full bg-red-800/50 hover:bg-red-800 items-center justify-center text-red-300 hover:text-white"> <i data-feather="trash-2" class="w-4 h-4"></i> </button> <div class="card-content flex-grow flex flex-col justify-between"> <div><h3 class="subject-card-name font-bold text-xl"></h3></div> <div class="text-right text-sm text-neutral-400"> <span class="assessment-count">0 avaliações</span> </div> </div> </div> </template>
-    <template id="assessment-row-template"> <tr class="border-b border-neutral-700"> <td class="p-4 assessment-name"></td> <td class="p-4 text-center"><span class="assessment-score"></span> / <span class="assessment-max-score"></span></td> <td class="p-4 text-right font-bold assessment-percentage"></td> <td class="p-4 text-right"> <div class="assessment-actions flex items-center justify-end gap-2"> <button class="delete-assessment-button text-red-500/70 hover:text-red-500"><i data-feather="trash-2" class="w-4 h-4"></i></button> </div> </td> </tr> </template>
+    <template id="assessment-row-template"> <tr class="border-b border-neutral-700"> <td class="p-4 assessment-name"></td> <td class="p-4 text-center"><span class="assessment-score"></span> / <span class="assessment-max-score"></span></td> <td class="p-4 text-right font-bold assessment-percentage"></td> <td class="p-4 text-right"> <div class="assessment-actions flex items-center justify-end gap-3"> <button class="toggle-visibility-button text-neutral-400 hover:text-white" title="Incluir/Excluir do gráfico"></button> <button class="delete-assessment-button text-red-500/70 hover:text-red-500" title="Excluir nota"><i data-feather="trash-2" class="w-4 h-4"></i></button> </div> </td> </tr> </template>
     <template id="todo-item-template"> <div class="todo-item flex items-center gap-4 p-4 bg-neutral-900 rounded-lg"> <input type="checkbox" class="todo-checkbox h-5 w-5 rounded bg-neutral-700 border-neutral-600 text-blue-500 focus:ring-blue-600 ring-offset-neutral-900"> <label class="flex-grow todo-item-text cursor-pointer"></label> <button class="todo-delete-button items-center justify-center text-red-500/70 hover:text-red-500"> <i data-feather="trash-2" class="w-5 h-5"></i> </button> </div> </template>
 
     <script>
@@ -139,6 +141,8 @@
                                 if (subject.classroom === undefined) subject.classroom = '';
                                 if (subject.credits === undefined) subject.credits = 0;
                                 if (subject.passingGrade === undefined) subject.passingGrade = 60;
+                                if (subject.totalClasses === undefined) subject.totalClasses = 0;
+                                if (subject.absences === undefined) subject.absences = 0;
                                 if (subject.assessmentDefinitions === undefined) {
                                     subject.assessmentDefinitions = [];
                                     subject.assessments.forEach(asm => {
@@ -155,7 +159,8 @@
                                 }
                                 subject.assessments.forEach(asm => {
                                     if (asm.id === undefined) asm.id = Date.now() + Math.random();
-                                    delete asm.date; // Remove date property
+                                    if (asm.visibleInChart === undefined) asm.visibleInChart = true;
+                                    delete asm.date;
                                 });
                             });
                         });
@@ -280,8 +285,29 @@
                     appData.currentSubjectId = parseInt(subjectId);
                     const subject = getCurrentSubject();
                     const semester = getCurrentSemester();
+                    const average = calculateWeightedAverage(subject.assessments, subject.assessmentDefinitions);
+                    const averageColor = average >= subject.passingGrade ? 'text-green-400' : 'text-red-400';
                     const contentArea = document.getElementById('dashboard-content');
-                    contentArea.innerHTML = `<div class="flex justify-between items-center mb-6"><button id="back-to-subjects" class="text-neutral-400 hover:text-white flex items-center gap-2"><i data-feather="arrow-left"></i> <span>Voltar para ${semester.name}</span></button><button id="open-manage-assessments-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="settings" class="w-5 h-5"></i><span>Gerenciar Avaliações</span></button></div><div class="mb-6"><h2 class="text-3xl font-bold">${subject.name} (${subject.acronym || 'N/A'})</h2><p class="text-neutral-400 mt-1">Professor(a): ${subject.professor || 'Não informado'} | Sala: ${subject.classroom || 'Não informada'} | Créditos: ${subject.credits || 0}</p></div><div class="my-6"><div class="bg-neutral-900 p-4 rounded-lg"><canvas id="subject-chart"></canvas></div></div><h3 class="text-2xl font-bold mb-4">Notas Lançadas</h3><div id="assessments-list" class="bg-neutral-900 rounded-lg overflow-hidden"></div>`;
+                    contentArea.innerHTML = `
+                        <div class="flex justify-between items-center mb-6">
+                            <button id="back-to-subjects" class="text-neutral-400 hover:text-white flex items-center gap-2"><i data-feather="arrow-left"></i> <span>Voltar para ${semester.name}</span></button>
+                            <button id="open-manage-assessments-modal-button" class="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2 font-semibold"><i data-feather="settings" class="w-5 h-5"></i><span>Gerenciar Matéria</span></button>
+                        </div>
+                        <div class="mb-6">
+                            <h2 class="text-3xl font-bold">${subject.name} (${subject.acronym || 'N/A'})</h2>
+                            <p class="text-neutral-400 mt-1">Professor(a): ${subject.professor || 'Não informado'} | Sala: ${subject.classroom || 'Não informada'} | Créditos: ${subject.credits || 0}</p>
+                        </div>
+                        <div id="absence-counter-container" class="mb-6"></div>
+                        <div class="my-6"><div class="bg-neutral-900 p-4 rounded-lg"><canvas id="subject-chart"></canvas></div></div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-2xl font-bold">Notas Lançadas</h3>
+                            <div class="font-bold text-lg">
+                                Média Ponderada Atual: <span class="text-xl ${averageColor}">${average.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                        <div id="assessments-list" class="bg-neutral-900 rounded-lg overflow-hidden"></div>
+                    `;
+                    renderAbsenceCounter(subject);
                     renderAssessments(subject);
                     renderSubjectChart(subject);
                     document.getElementById('back-to-subjects').addEventListener('click', () => renderSingleSemesterView(semester.id));
@@ -294,21 +320,69 @@
                     const tbody = document.getElementById('assessment-table-body');
                     if (subject.assessments.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="4" class="text-center p-8 text-neutral-400">Nenhuma nota lançada. Gerencie as avaliações para começar.</td></tr>';
+                    } else {
+                        subject.assessments.forEach(asm => {
+                            const definition = subject.assessmentDefinitions.find(d => d.id === asm.definitionId);
+                            if (!definition) return;
+                            const rowTemplate = document.getElementById('assessment-row-template').content.cloneNode(true);
+                            const row = rowTemplate.querySelector('tr');
+                            const percentage = (asm.score / definition.maxScore * 100);
+                            row.querySelector('.assessment-name').textContent = definition.name;
+                            row.querySelector('.assessment-score').textContent = asm.score;
+                            row.querySelector('.assessment-max-score').textContent = definition.maxScore;
+                            row.querySelector('.assessment-percentage').textContent = `${percentage.toFixed(1)}%`;
+                            
+                            const toggleBtn = row.querySelector('.toggle-visibility-button');
+                            toggleBtn.innerHTML = asm.visibleInChart ? '<i data-feather="eye" class="w-4 h-4"></i>' : '<i data-feather="eye-off" class="w-4 h-4"></i>';
+                            if (!asm.visibleInChart) {
+                                row.classList.add('opacity-50');
+                            }
+                            toggleBtn.addEventListener('click', () => handleToggleAssessmentVisibility(subject, asm.id));
+
+                            row.querySelector('.delete-assessment-button').addEventListener('click', () => openDeleteConfirmationModal('assessment', asm.id, definition.name, subject));
+                            tbody.appendChild(rowTemplate);
+                        });
+                    }
+                    feather.replace();
+                }
+                function renderAbsenceCounter(subject) {
+                    const container = document.getElementById('absence-counter-container');
+                    if (!subject.totalClasses || subject.totalClasses <= 0) {
+                        container.innerHTML = `<div class="bg-neutral-800/50 p-4 rounded-lg text-center text-neutral-400">Defina o número total de aulas em "Gerenciar Matéria" para habilitar o contador de faltas.</div>`;
                         return;
                     }
-                    subject.assessments.forEach(asm => {
-                        const definition = subject.assessmentDefinitions.find(d => d.id === asm.definitionId);
-                        if (!definition) return;
-                        const row = document.getElementById('assessment-row-template').content.cloneNode(true);
-                        const percentage = (asm.score / definition.maxScore * 100);
-                        row.querySelector('.assessment-name').textContent = definition.name;
-                        row.querySelector('.assessment-score').textContent = asm.score;
-                        row.querySelector('.assessment-max-score').textContent = definition.maxScore;
-                        row.querySelector('.assessment-percentage').textContent = `${percentage.toFixed(1)}%`;
-                        row.querySelector('.delete-assessment-button').addEventListener('click', () => openDeleteConfirmationModal('assessment', asm.id, definition.name, subject));
-                        tbody.appendChild(row);
-                    });
-                    feather.replace();
+
+                    const maxAbsences = Math.floor(subject.totalClasses * 0.25);
+                    const absences = subject.absences;
+                    const percentage = maxAbsences > 0 ? (absences / maxAbsences) * 100 : 0;
+                    
+                    let colorClass = 'text-green-400';
+                    let statusText = '';
+
+                    if (percentage >= 50 && percentage < 100) {
+                        colorClass = 'text-yellow-400';
+                    } else if (percentage >= 100) {
+                        colorClass = 'text-red-500';
+                    }
+
+                    if (absences > maxAbsences) {
+                        statusText = `<span class="font-bold ml-4">💀 Reprovado por infrequência</span>`;
+                    }
+
+                    container.innerHTML = `
+                        <div class="bg-neutral-900 p-4 rounded-lg flex items-center justify-between">
+                            <span class="font-semibold text-neutral-300">Controle de Faltas:</span>
+                            <div class="flex items-center gap-4">
+                                <button id="decrement-absence" class="w-8 h-8 flex items-center justify-center bg-neutral-700 rounded-full hover:bg-neutral-600">-</button>
+                                <span class="text-xl font-bold ${colorClass}">${absences} / ${maxAbsences}</span>
+                                <button id="increment-absence" class="w-8 h-8 flex items-center justify-center bg-neutral-700 rounded-full hover:bg-neutral-600">+</button>
+                                ${statusText}
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('decrement-absence').addEventListener('click', () => handleUpdateAbsences(subject, -1));
+                    document.getElementById('increment-absence').addEventListener('click', () => handleUpdateAbsences(subject, 1));
                 }
                 function renderScheduleGrid() {
                     const contentArea = document.getElementById('dashboard-content');
@@ -379,7 +453,9 @@
                     const ctx = document.getElementById('subject-chart').getContext('2d');
                     if (subjectChartInstance) subjectChartInstance.destroy();
 
-                    const sortedAssessments = [...subject.assessments].sort((a, b) => {
+                    const visibleAssessments = subject.assessments.filter(asm => asm.visibleInChart);
+
+                    const sortedAssessments = [...visibleAssessments].sort((a, b) => {
                         const defA = subject.assessmentDefinitions.findIndex(d => d.id === a.definitionId);
                         const defB = subject.assessmentDefinitions.findIndex(d => d.id === b.definitionId);
                         return defA - defB;
@@ -410,9 +486,9 @@
                         }
                     ];
 
-                    if (subject.assessments.length > 0) {
+                    if (visibleAssessments.length > 0) {
                         datasets.push({
-                            label: `Média Atual`,
+                            label: `Média Atual (Visível)`,
                             data: runningAverageData,
                             borderColor: 'rgba(34, 197, 94, 0.9)',
                             borderWidth: 3,
@@ -515,7 +591,7 @@
                 function handleCreateProfile(e) { e.preventDefault(); const name = document.getElementById('profile-name').value.trim(); const university = document.getElementById('profile-university').value.trim(); const photoUrl = document.getElementById('profile-photo').value.trim(); if (!name || !university) return; appData.profiles.push({ id: Date.now(), name, university, photoUrl, semesters: [], schedule: {}, todos: [] }); saveData(); renderProfiles(); e.target.reset(); showScreen('profileSelection'); }
                 function handleUpdateProfile(e) { e.preventDefault(); const profile = getCurrentProfile(); if (!profile) return; const newName = document.getElementById('profile-name-edit').value.trim(); const newUniversity = document.getElementById('profile-university-edit').value.trim(); const newPhotoUrl = document.getElementById('profile-photo-edit').value.trim(); if (!newName || !newUniversity) { alert('O nome e a sigla da faculdade são obrigatórios.'); return; } profile.name = newName; profile.university = newUniversity; profile.photoUrl = newPhotoUrl; saveData(); document.getElementById('welcome-message').textContent = `${profile.name}`; renderProfiles(); alert('Perfil atualizado com sucesso!'); }
                 function handleAddSemester(e) { e.preventDefault(); const name = document.getElementById('semester-name').value.trim(); if (!name) return; const profile = getCurrentProfile(); profile.semesters.push({ id: Date.now(), name, subjects: [] }); saveData(); renderSemestersList(); e.target.reset(); hideModals(); }
-                function handleAddSubject(e) { e.preventDefault(); const name = document.getElementById('subject-name').value.trim(); const acronym = document.getElementById('subject-acronym').value.trim(); const professor = document.getElementById('subject-professor').value.trim(); const classroom = document.getElementById('subject-classroom').value.trim(); const credits = parseInt(document.getElementById('subject-credits').value) || 0; const selectedColor = document.querySelector('input[name="color-choice"]:checked'); if (!name || !selectedColor) { alert('Por favor, preencha pelo menos o nome e escolha uma cor.'); return; } const semester = getCurrentSemester(); semester.subjects.push({ id: Date.now(), name, acronym, professor, classroom, credits, color: selectedColor.value, assessments: [], assessmentDefinitions: [], passingGrade: 60 }); saveData(); renderSingleSemesterView(semester.id); e.target.reset(); hideModals(); }
+                function handleAddSubject(e) { e.preventDefault(); const name = document.getElementById('subject-name').value.trim(); const acronym = document.getElementById('subject-acronym').value.trim(); const professor = document.getElementById('subject-professor').value.trim(); const classroom = document.getElementById('subject-classroom').value.trim(); const credits = parseInt(document.getElementById('subject-credits').value) || 0; const selectedColor = document.querySelector('input[name="color-choice"]:checked'); if (!name || !selectedColor) { alert('Por favor, preencha pelo menos o nome e escolha uma cor.'); return; } const semester = getCurrentSemester(); semester.subjects.push({ id: Date.now(), name, acronym, professor, classroom, credits, color: selectedColor.value, assessments: [], assessmentDefinitions: [], passingGrade: 60, totalClasses: 0, absences: 0 }); saveData(); renderSingleSemesterView(semester.id); e.target.reset(); hideModals(); }
                 function handleAddTodo(e) { e.preventDefault(); const input = document.getElementById('add-todo-input'); const text = input.value.trim(); if (text) { const profile = getCurrentProfile(); profile.todos.unshift({ id: Date.now(), text, completed: false }); saveData(); renderTodoView(); input.value = ''; } }
                 function handleToggleTodo(todoId) { const profile = getCurrentProfile(); const todo = profile.todos.find(t => t.id === todoId); if (todo) { todo.completed = !todo.completed; saveData(); renderTodoView(); } }
                 function handleDeleteTodo(todoId) { const profile = getCurrentProfile(); profile.todos = profile.todos.filter(t => t.id !== todoId); saveData(); renderTodoView(); }
@@ -526,6 +602,22 @@
                 function handleOpenScheduleModal(timeslotId) { appData.currentTimeslotId = timeslotId; const [day, hour] = timeslotId.split('-'); const dayNames = { mon: 'Segunda', tue: 'Terça', wed: 'Quarta', thu: 'Quinta', fri: 'Sexta', sat: 'Sábado' }; document.getElementById('schedule-modal-timeslot').textContent = `${dayNames[day]} às ${hour}:00`; const list = document.getElementById('schedule-subject-list'); const profile = getCurrentProfile(); const allSubjects = profile.semesters.flatMap(sem => sem.subjects); list.innerHTML = ''; if (allSubjects.length === 0) { list.innerHTML = '<p class="text-neutral-400">Crie uma matéria primeiro.</p>'; } else { allSubjects.forEach(subject => { const colorClass = subjectColors[subject.color]?.bg || 'bg-neutral-700'; list.innerHTML += `<button data-subject-id="${subject.id}" class="schedule-add-button w-full text-left p-3 rounded-md ${colorClass} hover:opacity-80 transition-opacity">${subject.name}</button>`; }); } document.querySelectorAll('.schedule-add-button').forEach(btn => btn.addEventListener('click', (e) => handleAddToSchedule(e.currentTarget.dataset.subjectId))); showModal('addToSchedule'); }
                 function handleAddToSchedule(subjectId) { const profile = getCurrentProfile(); profile.schedule[appData.currentTimeslotId] = parseInt(subjectId); saveData(); renderScheduleGrid(); hideModals(); }
                 function handleRemoveFromSchedule(timeslotId) { const profile = getCurrentProfile(); delete profile.schedule[timeslotId]; saveData(); renderScheduleGrid(); }
+                function handleUpdateAbsences(subject, change) {
+                    const newAbsences = subject.absences + change;
+                    if (newAbsences >= 0) {
+                        subject.absences = newAbsences;
+                        saveData();
+                        renderAbsenceCounter(subject);
+                    }
+                }
+                function handleToggleAssessmentVisibility(subject, assessmentId) {
+                    const assessment = subject.assessments.find(a => a.id === assessmentId);
+                    if (assessment) {
+                        assessment.visibleInChart = !assessment.visibleInChart;
+                        saveData();
+                        showSubjectDetails(subject.id);
+                    }
+                }
                 
                 // =================================================================================
                 // --- LÓGICA DO GERENCIADOR DE AVALIAÇÕES ---
@@ -552,6 +644,10 @@
                                     <div class="mb-6">
                                         <label for="passing-grade-input" class="block text-sm font-medium text-neutral-300 mb-2">Média para Aprovação (%)</label>
                                         <input type="number" id="passing-grade-input" value="${subject.passingGrade}" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg" required>
+                                    </div>
+                                    <div class="mb-6">
+                                        <label for="total-classes-input" class="block text-sm font-medium text-neutral-300 mb-2">Número Total de Aulas</label>
+                                        <input type="number" id="total-classes-input" value="${subject.totalClasses || ''}" placeholder="Ex: 40" class="w-full p-3 bg-neutral-800 border border-neutral-700 rounded-lg">
                                     </div>
                                     <div class="mb-6">
                                         <h4 class="text-lg font-semibold text-neutral-300 mb-3">Estrutura de Avaliação</h4>
@@ -600,13 +696,56 @@
                     if (!list) return;
                     list.innerHTML = '';
                     subject.assessmentDefinitions.forEach(def => {
-                        list.innerHTML += `<li class="flex justify-between items-center p-3 bg-neutral-800 rounded-md"><span>${def.name} <span class="text-neutral-400">(Peso: ${def.maxScore})</span></span><button data-def-id="${def.id}" class="delete-definition-button text-red-500/70 hover:text-red-500"><i data-feather="trash-2" class="w-4 h-4"></i></button></li>`;
+                        const li = document.createElement('li');
+                        li.className = 'flex justify-between items-center p-3 bg-neutral-800 rounded-md gap-2';
+                        li.dataset.defId = def.id;
+                        li.innerHTML = `
+                            <div class="definition-display flex-grow flex items-center justify-between">
+                                <span>${def.name} <span class="text-neutral-400">(Peso: ${def.maxScore})</span></span>
+                                <div>
+                                    <button data-def-id="${def.id}" class="edit-def-button text-blue-400/70 hover:text-blue-400 mr-2"><i data-feather="edit-2" class="w-4 h-4"></i></button>
+                                    <button data-def-id="${def.id}" class="delete-definition-button text-red-500/70 hover:text-red-500"><i data-feather="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                            <div class="definition-edit hidden flex-grow flex items-center gap-2">
+                                <input type="text" value="${def.name}" class="def-edit-name w-full p-1 bg-neutral-700 border-neutral-600 rounded-md">
+                                <input type="number" value="${def.maxScore}" class="def-edit-max-score w-24 p-1 bg-neutral-700 border-neutral-600 rounded-md">
+                                <button data-def-id="${def.id}" class="save-def-button text-green-400/80 hover:text-green-400"><i data-feather="check" class="w-5 h-5"></i></button>
+                            </div>
+                        `;
+                        list.appendChild(li);
                     });
                     if (subject.assessmentDefinitions.length === 0) {
                         list.innerHTML = '<p class="text-neutral-500 text-center p-4">Nenhuma estrutura de avaliação definida.</p>';
                     }
+                    document.querySelectorAll('.edit-def-button').forEach(btn => btn.addEventListener('click', (e) => handleEditAssessmentDefinition(e, subject)));
+                    document.querySelectorAll('.save-def-button').forEach(btn => btn.addEventListener('click', (e) => handleSaveAssessmentDefinition(e, subject)));
                     document.querySelectorAll('.delete-definition-button').forEach(btn => btn.addEventListener('click', (e) => handleDeleteAssessmentDefinition(e, subject)));
                     feather.replace();
+                }
+                
+                function handleEditAssessmentDefinition(e, subject) {
+                    const defId = parseFloat(e.currentTarget.dataset.defId);
+                    const li = e.currentTarget.closest('li');
+                    li.querySelector('.definition-display').classList.add('hidden');
+                    li.querySelector('.definition-edit').classList.remove('hidden');
+                }
+
+                function handleSaveAssessmentDefinition(e, subject) {
+                    const defId = parseFloat(e.currentTarget.dataset.defId);
+                    const li = e.currentTarget.closest('li');
+                    const newName = li.querySelector('.def-edit-name').value.trim();
+                    const newMaxScore = parseFloat(li.querySelector('.def-edit-max-score').value);
+                    const definition = subject.assessmentDefinitions.find(d => d.id === defId);
+                    
+                    if (definition && newName && !isNaN(newMaxScore) && newMaxScore > 0) {
+                        definition.name = newName;
+                        definition.maxScore = newMaxScore;
+                        renderDefinitionsList(subject);
+                        renderGradesList(subject); 
+                    } else {
+                        alert("Por favor, preencha o nome e o peso (nota máx.) corretamente.");
+                    }
                 }
 
                 function renderGradesList(subject) {
@@ -659,6 +798,11 @@
                         subject.passingGrade = newPassingGrade;
                     }
 
+                    const newTotalClasses = parseInt(document.getElementById('total-classes-input').value);
+                    if (!isNaN(newTotalClasses) && newTotalClasses >= 0) {
+                        subject.totalClasses = newTotalClasses;
+                    }
+
                     const newAssessments = [];
                     const gradeRows = document.querySelectorAll('#grades-list li');
                     let allScoresValid = true;
@@ -682,7 +826,7 @@
                                 existingAssessment.score = score;
                                 newAssessments.push(existingAssessment);
                             } else {
-                                newAssessments.push({ id: Date.now() + Math.random(), definitionId, score });
+                                newAssessments.push({ id: Date.now() + Math.random(), definitionId, score, visibleInChart: true });
                             }
                         }
                     });
@@ -715,7 +859,7 @@
                     else { suggestions.forEach(s => { suggestionsHTML += `<div class="flex items-start gap-4 p-4 bg-neutral-800/50 rounded-lg mb-3"><i data-feather="${s.icon}" class="w-6 h-6 ${s.color} mt-1"></i><p class="flex-1 text-neutral-300">${s.text}</p></div>`; }); }
                     suggestionsContainer.innerHTML = suggestionsHTML;
 
-                    const questions = [ { key: 'worst_subject', text: 'Qual matéria precisa de mais atenção?' }, { key: 'best_subject', text: 'Qual minha melhor matéria?' }, { key: 'next_class', text: 'Qual minha próxima aula hoje?' }, { key: 'pending_tasks', text: 'O que preciso fazer?' } ];
+                    const questions = [ { key: 'worst_subject', text: 'Qual matéria precisa de mais atenção?' }, { key: 'best_subject', text: 'Qual minha melhor matéria?' }, { key: 'next_class', text: 'Qual minha próxima aula hoje?' }, { key: 'pending_tasks', text: 'O que preciso fazer?' }, { key: 'performance_overview', text: 'Como está meu desempenho geral?' } ];
                     questions.forEach(q => { questionsContainer.innerHTML += `<button data-question-key="${q.key}" class="ai-question-button text-left w-full p-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors">${q.text}</button>`; });
 
                     modal.querySelectorAll('.ai-question-button').forEach(btn => btn.addEventListener('click', () => handleAiQuickQuestion(btn.dataset.questionKey)));
@@ -727,13 +871,14 @@
 
                 function handleAiQuickQuestion(questionKey) {
                     const profile = getCurrentProfile();
-                    const allSubjects = profile.semesters.flatMap(s => s.subjects).filter(s => s.assessments.length > 0);
+                    const allSubjects = profile.semesters.flatMap(s => s.subjects);
+                    const gradedSubjects = allSubjects.filter(s => s.assessments.length > 0);
                     let answer = { icon: 'help-circle', text: 'Não tenho dados suficientes para responder a isso ainda. Adicione mais matérias e avaliações no app!' };
 
                     if (questionKey === 'worst_subject') {
-                        if (allSubjects.length > 0) { const worst = allSubjects.reduce((min, s) => calculateWeightedAverage(s.assessments, s.assessmentDefinitions) < calculateWeightedAverage(min.assessments, min.assessmentDefinitions) ? s : min); answer = { icon: 'trending-down', text: `A matéria que exige mais atenção é <strong>${worst.name}</strong>, com média <strong>${calculateWeightedAverage(worst.assessments, worst.assessmentDefinitions).toFixed(1)}%</strong>.` }; }
+                        if (gradedSubjects.length > 0) { const worst = gradedSubjects.reduce((min, s) => calculateWeightedAverage(s.assessments, s.assessmentDefinitions) < calculateWeightedAverage(min.assessments, min.assessmentDefinitions) ? s : min); answer = { icon: 'trending-down', text: `A matéria que exige mais atenção é <strong>${worst.name}</strong>, com média <strong>${calculateWeightedAverage(worst.assessments, worst.assessmentDefinitions).toFixed(1)}%</strong>.` }; }
                     } else if (questionKey === 'best_subject') {
-                        if (allSubjects.length > 0) { const best = allSubjects.reduce((max, s) => calculateWeightedAverage(s.assessments, s.assessmentDefinitions) > calculateWeightedAverage(max.assessments, max.assessmentDefinitions) ? s : max); answer = { icon: 'trending-up', text: `Sua melhor matéria é <strong>${best.name}</strong>, com uma ótima média de <strong>${calculateWeightedAverage(best.assessments, best.assessmentDefinitions).toFixed(1)}%</strong>. Parabéns!` }; }
+                        if (gradedSubjects.length > 0) { const best = gradedSubjects.reduce((max, s) => calculateWeightedAverage(s.assessments, s.assessmentDefinitions) > calculateWeightedAverage(max.assessments, max.assessmentDefinitions) ? s : max); answer = { icon: 'trending-up', text: `Sua melhor matéria é <strong>${best.name}</strong>, com uma ótima média de <strong>${calculateWeightedAverage(best.assessments, best.assessmentDefinitions).toFixed(1)}%</strong>. Parabéns!` }; }
                     } else if (questionKey === 'pending_tasks') {
                         const pending = profile.todos.filter(t => !t.completed);
                         if (pending.length > 0) { answer = { icon: 'list', text: `Você tem ${pending.length} tarefa(s) pendente(s): <ul class="mt-2">${pending.map(t => `<li class="ml-4 list-disc">${t.text}</li>`).join('')}</ul>` }; }
@@ -743,10 +888,23 @@
                         const now = new Date();
                         const upcoming = Object.keys(profile.schedule).filter(k => k.startsWith(dayMap[now.getDay()]) && parseInt(k.split('-')[1]) >= now.getHours()).sort((a,b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1]));
                         if (upcoming.length > 0) {
-                            const subject = profile.semesters.flatMap(s=>s.subjects).find(s => s.id === profile.schedule[upcoming[0]]);
+                            const subject = allSubjects.find(s => s.id === profile.schedule[upcoming[0]]);
                             if (subject) { answer = { icon: 'calendar', text: `Sua próxima aula hoje é <strong>${subject.name}</strong> às ${upcoming[0].split('-')[1]}:00.` }; }
                             else { answer = { icon: 'search', text: 'Encontrei um horário agendado, mas a matéria foi removida. Verifique sua grade.' }; }
                         } else { answer = { icon: 'coffee', text: 'Você não tem mais aulas agendadas para hoje. Aproveite para descansar ou estudar!' }; }
+                    } else if (questionKey === 'performance_overview') {
+                        if (gradedSubjects.length > 0) {
+                            let overview = 'Aqui está um resumo do seu desempenho atual:<ul class="mt-2 space-y-1">';
+                            gradedSubjects.forEach(s => {
+                                const avg = calculateWeightedAverage(s.assessments, s.assessmentDefinitions);
+                                const color = avg >= s.passingGrade ? 'text-green-400' : 'text-red-400';
+                                overview += `<li class="ml-4 list-disc"><strong>${s.name}</strong>: Média <span class="font-bold ${color}">${avg.toFixed(1)}%</span></li>`;
+                            });
+                            overview += '</ul>';
+                            answer = { icon: 'bar-chart-2', text: overview };
+                        } else {
+                            answer = { icon: 'info', text: 'Lance algumas notas para que eu possa te dar um resumo do seu desempenho.' };
+                        }
                     }
 
                     const answerContent = document.getElementById('ai-answer-content');
@@ -763,15 +921,64 @@
                     
                     if (allSubjects.length === 0) { suggestions.push({ icon: 'book-open', color: 'text-blue-400', text: 'Bem-vindo! Comece adicionando suas matérias na aba "Matérias" para que eu possa ajudar você a se organizar.' }); }
 
-                    const subjectsWithAssessments = allSubjects.filter(s => s.assessments.length > 0);
-                    const overallIra = parseFloat(calculateIra(subjectsWithAssessments));
-                    if (overallIra < 7.0 && subjectsWithAssessments.length > 0) { suggestions.push({ icon: 'alert-triangle', color: 'text-yellow-400', text: `Seu IRA geral está em <strong>${overallIra.toFixed(2)}</strong>. Foque nas matérias com notas mais baixas.` }); }
-                    subjectsWithAssessments.forEach(subject => { const avg = calculateWeightedAverage(subject.assessments, subject.assessmentDefinitions); if (avg < subject.passingGrade) { suggestions.push({ icon: 'alert-triangle', color: 'text-red-400', text: `Sua média em <strong>${subject.name}</strong> está baixa (${avg.toFixed(1)}%), abaixo da meta de ${subject.passingGrade}%. Dedique um tempo extra para esta matéria.` }); } });
+                    // Worst subject analysis
+                    const gradedSubjects = allSubjects.filter(s => s.assessments.length > 0);
+                    if (gradedSubjects.length > 1) {
+                         const worstSubject = gradedSubjects.reduce((min, s) => calculateWeightedAverage(s.assessments, s.assessmentDefinitions) < calculateWeightedAverage(min.assessments, min.assessmentDefinitions) ? s : min);
+                         const dayMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                         const now = new Date();
+                         const todayKey = dayMap[now.getDay()];
+                         const scheduleKeys = Object.keys(profile.schedule).sort();
+                         let freeSlotFound = 'Pode ser um bom momento para revisar o conteúdo.';
+                         
+                         // Find next free slot today
+                         let nextFreeSlotToday = null;
+                         for(let hour = now.getHours() + 1; hour <= 22; hour++) {
+                             const timeslotId = `${todayKey}-${String(hour).padStart(2, '0')}`;
+                             if (!profile.schedule[timeslotId]) {
+                                 nextFreeSlotToday = `${String(hour).padStart(2, '0')}:00`;
+                                 break;
+                             }
+                         }
+
+                         if (nextFreeSlotToday) {
+                             freeSlotFound = `Você tem um horário livre hoje às <strong>${nextFreeSlotToday}</strong>. Que tal usá-lo para focar em <strong>${worstSubject.name}</strong>?`;
+                         }
+                         
+                         const worstAvg = calculateWeightedAverage(worstSubject.assessments, worstSubject.assessmentDefinitions);
+                         if (worstAvg < worstSubject.passingGrade) {
+                             suggestions.push({ icon: 'alert-octagon', color: 'text-red-400', text: `Sua matéria com menor desempenho é <strong>${worstSubject.name}</strong> (${worstAvg.toFixed(1)}%). ${freeSlotFound}` });
+                         }
+                    }
                     
+                    // Absence warning
+                    allSubjects.forEach(subject => {
+                        if (subject.totalClasses > 0) {
+                            const maxAbsences = Math.floor(subject.totalClasses * 0.25);
+                            const absencePercentage = maxAbsences > 0 ? (subject.absences / maxAbsences) * 100 : 0;
+                            if (absencePercentage >= 50 && absencePercentage < 100) {
+                                suggestions.push({ icon: 'alert-triangle', color: 'text-yellow-400', text: `Atenção com as faltas em <strong>${subject.name}</strong>! Você já usou <strong>${subject.absences} de ${maxAbsences}</strong> faltas permitidas.` });
+                            }
+                        }
+                    });
+
+                    // Upcoming assessments
+                    allSubjects.forEach(subject => {
+                        if (subject.assessmentDefinitions.length > subject.assessments.length) {
+                            const gradedDefIds = subject.assessments.map(a => a.definitionId);
+                            const nextUngradedDef = subject.assessmentDefinitions.find(d => !gradedDefIds.includes(d.id));
+                            if (nextUngradedDef) {
+                                suggestions.push({ icon: 'edit-3', color: 'text-blue-400', text: `Sua próxima avaliação em <strong>${subject.name}</strong> é <strong>${nextUngradedDef.name}</strong>. Lembre-se de se preparar!` });
+                            }
+                        }
+                    });
+
+                    // Pending tasks
                     const pendingTodos = profile.todos.filter(t => !t.completed);
                     if (pendingTodos.length > 2) { suggestions.push({ icon: 'list', color: 'text-yellow-400', text: `Você tem <strong>${pendingTodos.length} tarefas pendentes</strong>. É uma boa hora para começar a resolvê-las!` }); }
                     
-                    if (suggestions.length === 0 && (subjectsWithAssessments.length > 0 || profile.todos.length > 0)) { suggestions.push({ icon: 'check-circle', color: 'text-green-400', text: `Parabéns! Suas notas estão boas e você não tem muitas tarefas acumuladas. Continue assim!` }); }
+                    if (suggestions.length === 0 && (gradedSubjects.length > 0 || profile.todos.length > 0)) { suggestions.push({ icon: 'check-circle', color: 'text-green-400', text: `Parabéns! Suas notas estão boas e você não tem muitas tarefas acumuladas. Continue assim!` }); }
+                    
                     return suggestions;
                 }
 
